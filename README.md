@@ -7,9 +7,10 @@
 KEG 교육 그룹의 AI 교육 솔루션 3종 (Studio · Cast · Tutor) 베타 운영을 위한 웹 애플리케이션. 1차 PoC(P3 Max Tutor)에서 검증된 29 에이전트 + 통합 인터페이스(CAE)를 단일 플랫폼으로 노출한다.
 
 - **버전:** v0.1.0 (Landing only — 2026-05-09)
-- **스택:** Next.js 15 · TypeScript · Tailwind CSS · App Router
-- **배포:** Vercel
+- **스택:** Next.js 16 · TypeScript · Tailwind CSS · App Router
+- **배포:** Vercel — **🌐 https://ai-studio-drab-nine.vercel.app/**
 - **모노레포 구조:** `apps/web/` (Next.js)
+- **저장소:** https://github.com/aureinstudio/ai-studio
 
 ## 빠른 시작
 
