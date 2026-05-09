@@ -8,8 +8,11 @@ import Anthropic from "@anthropic-ai/sdk";
  */
 export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
-  timeout: 60_000, // 60s — 긴 생성 응답 대비
-  maxRetries: 1, // SDK 자동 재시도 1회 (408/429/500/502/503/504)
+  // Sonnet 한국어 대량 생성(8K-15K tokens) = 100-150s 가능.
+  // VisualPlanner는 큐레이터 입력 받아 추가 출력 → 가장 느림.
+  // 180s 여유 + 재시도 0 (재시도해도 같은 이유로 실패).
+  timeout: 180_000,
+  maxRetries: 0,
 });
 
 /**
@@ -21,11 +24,12 @@ export const anthropic = new Anthropic({
 export const MODEL = "claude-sonnet-4-5";
 
 /**
- * 기본 max_tokens — 비용 가드레일.
- * 최악 경우: 4096 × $15/M = $0.0614 (1회 호출 비용 상한).
- * 100회 누적 시 < $7 — PoC 안전 범위.
+ * 기본 max_tokens — Sonnet 4.5 모델 한계(64K)에 맞춰 *실질적으로 무제한*.
+ * Claude는 자체적으로 콘텐츠 길이 판단해서 끝맺음 — 이 값은 *cap*일 뿐 평균 사용량은 훨씬 적음.
+ * 최악 경우: 64000 × $15/M = $0.96 (1회 호출 상한). 100회 < $100 — PoC 가드 충분.
+ * 실제로 큐레이터 1회 ≈ 5-7K tokens out, 평균 비용 ≈ $0.08-$0.11.
  */
-export const MAX_TOKENS = 4096;
+export const MAX_TOKENS = 64000;
 
 /**
  * 기본 temperature — 0.7.
