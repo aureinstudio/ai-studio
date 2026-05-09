@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -56,12 +57,12 @@ export default function Page() {
           </p>
 
           <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
-            <Button
-              size="lg"
-              className="h-11 min-w-[140px] bg-foreground px-6 text-base font-medium text-background shadow-lg shadow-foreground/10 hover:bg-foreground/90"
+            <Link
+              href="/login"
+              className="inline-flex h-11 min-w-[140px] items-center justify-center rounded-lg bg-foreground px-6 text-base font-medium text-background shadow-lg shadow-foreground/10 transition-colors hover:bg-foreground/90"
             >
               시작하기
-            </Button>
+            </Link>
             <Button
               variant="outline"
               size="lg"
