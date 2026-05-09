@@ -1,26 +1,157 @@
-@import "tailwindcss";
+/* 외부 CDN @import는 PostCSS 확장 전에 위치해야 최종 CSS에서도 최상단 유지 */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+
+  /* 한글 우선, 영문 Inter, 시스템 폴백 */
+  --font-sans: "Pretendard Variable", var(--font-inter), -apple-system, BlinkMacSystemFont,
+    system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ─────────────────────────────────────────────────────
+   Midnight Executive 팔레트
+   - 주조: 네이비 #1E2761
+   - 액센트: 오렌지 #FF6B35
+   - 다크 모드 기본
+   ───────────────────────────────────────────────────── */
+
+:root {
+  /* Light mode (드물게 사용 — 인쇄·고대비 환경) */
+  --background: #fafafa;
+  --foreground: #0f1129;
+  --card: #ffffff;
+  --card-foreground: #0f1129;
+  --popover: #ffffff;
+  --popover-foreground: #0f1129;
+  --primary: #1e2761;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f1f7;
+  --secondary-foreground: #1e2761;
+  --muted: #f0f1f7;
+  --muted-foreground: #5b5f7a;
+  --accent: #ff6b35;
+  --accent-foreground: #ffffff;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #e4e6ef;
+  --input: #e4e6ef;
+  --ring: #ff6b35;
+  --chart-1: #1e2761;
+  --chart-2: #ff6b35;
+  --chart-3: #4f5b9a;
+  --chart-4: #ffa07d;
+  --chart-5: #2d3a8c;
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f1129;
+  --sidebar-primary: #1e2761;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ff6b35;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #e4e6ef;
+  --sidebar-ring: #ff6b35;
+}
+
+.dark {
+  /* Dark mode (기본) — Midnight Executive 본 모드 */
+  --background: #0a0d1f;        /* 깊은 다크 네이비 */
+  --foreground: #f5f5f5;        /* 화이트 */
+  --card: #131737;              /* 살짝 밝은 네이비 (카드 표면) */
+  --card-foreground: #f5f5f5;
+  --popover: #131737;
+  --popover-foreground: #f5f5f5;
+  --primary: #1e2761;           /* 본 브랜드 네이비 */
+  --primary-foreground: #ffffff;
+  --secondary: #1a1f44;         /* 보조 네이비 */
+  --secondary-foreground: #e8e9f3;
+  --muted: #1a1f44;
+  --muted-foreground: #9ea3c2;  /* 부제목·캡션 */
+  --accent: #ff6b35;            /* 오렌지 액센트 */
+  --accent-foreground: #ffffff;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #ff6b35;              /* 포커스 링: 액센트 컬러 */
+  --chart-1: #ff6b35;
+  --chart-2: #4f5b9a;
+  --chart-3: #ffa07d;
+  --chart-4: #2d3a8c;
+  --chart-5: #f5f5f5;
+  --sidebar: #0f1229;
+  --sidebar-foreground: #f5f5f5;
+  --sidebar-primary: #ff6b35;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1a1f44;
+  --sidebar-accent-foreground: #f5f5f5;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #ff6b35;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  html {
+    @apply font-sans;
+    /* 한글 가독성 */
+    word-break: keep-all;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  /* 헤딩은 한글 + 영문 모두 시각적 무게 일치 */
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight;
+    font-feature-settings: "ss01", "ss02", "cv11";
+  }
 }
