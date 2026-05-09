@@ -25,23 +25,30 @@ async function checkSupabase(): Promise<HealthStatus> {
 
   const start = performance.now();
   try {
+    // auth.getSession()은 로컬 체크라 네트워크 RTT 측정 불가.
+    // 존재하지 않는 테이블 query로 *실제* PostgREST round-trip 강제.
+    // 결과는 PGRST205("table not found") 에러를 정상 응답으로 간주 — 핵심은 도달성.
     const supabase = await createClient();
-    // auth.getSession은 DB 스키마 없이도 작동 — 가장 가벼운 connectivity 테스트
-    const { error } = await supabase.auth.getSession();
+    const { error } = await supabase
+      .from("__healthcheck_ping__")
+      .select("*")
+      .limit(1);
     const latency = Math.round(performance.now() - start);
 
-    if (error) {
+    // PGRST205 = relation does not exist → 정상 (서버 도달, 권한·인증 OK)
+    // 다른 에러 코드 = 비정상
+    if (error && error.code !== "PGRST205" && error.code !== "42P01") {
       return {
         ok: false,
         latency_ms: latency,
         message: "API 응답 받았으나 오류",
-        detail: error.message,
+        detail: `${error.code}: ${error.message}`,
       };
     }
     return {
       ok: true,
       latency_ms: latency,
-      message: "Supabase 연결 정상",
+      message: "Supabase 연결 정상 (PostgREST round-trip)",
     };
   } catch (err) {
     const latency = Math.round(performance.now() - start);
@@ -54,10 +61,10 @@ async function checkSupabase(): Promise<HealthStatus> {
   }
 }
 
-function maskUrl(url: string | undefined): string {
-  if (!url) return "(미설정)";
-  // https://abc123.supabase.co → https://abc***.supabase.co
-  return url.replace(/(https:\/\/)([a-z0-9]{3})[a-z0-9]+(\.supabase\.co)/, "$1$2***$3");
+function displayUrl(url: string | undefined): string {
+  // Project URL은 공개 정보 (Supabase 대시보드·env 매니저 등 노출 가능).
+  // 시크릿이 아니므로 마스킹하지 않음 — 트러블슈팅 시 ref 식별 용이.
+  return url ?? "(미설정)";
 }
 
 export default async function HealthPage() {
@@ -120,7 +127,7 @@ export default async function HealthPage() {
               Project URL
             </dt>
             <dd className="mt-1 break-all font-mono text-xs text-foreground/80">
-              {maskUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)}
+              {displayUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)}
             </dd>
           </div>
           <div>
