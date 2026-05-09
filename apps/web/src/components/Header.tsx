@@ -8,7 +8,7 @@ export function Header() {
           href="/"
           className="group flex items-center gap-2.5 transition-opacity hover:opacity-80"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-foreground text-sm font-bold tracking-tighter shadow-sm">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background text-sm font-bold tracking-tighter shadow-sm">
             ai
           </span>
           <span className="text-base font-semibold tracking-tight text-foreground">

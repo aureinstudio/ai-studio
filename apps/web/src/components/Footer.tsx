@@ -8,7 +8,7 @@ export function Footer() {
           <span className="opacity-50">×</span>{" "}
           <span className="font-medium text-foreground">KEG</span>
         </p>
-        <p className="font-mono tabular-nums tracking-tight">v0.2.0</p>
+        <p className="font-mono tabular-nums tracking-tight">v0.2.1</p>
       </div>
     </footer>
   );

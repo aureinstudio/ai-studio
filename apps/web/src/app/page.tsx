@@ -31,18 +31,18 @@ const stats = [
 export default function Page() {
   return (
     <div className="relative">
-      {/* 미세한 그라데이션 배경 */}
+      {/* 미세한 무채색 글로우 — 위쪽 중앙에 light spot */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[640px] bg-[radial-gradient(ellipse_at_top,_rgba(255,107,53,0.08),_transparent_60%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[640px] bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.05),_transparent_60%)]"
       />
 
       {/* ═══ Hero ═══ */}
       <section className="mx-auto max-w-7xl px-6 pt-20 pb-24 sm:pt-28 sm:pb-32 lg:px-10 lg:pt-36">
         <div className="flex flex-col items-center text-center">
           <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            v0.2.0 · KEG × Aurein AX
+            <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
+            v0.2.1 · KEG × Aurein AX
           </span>
 
           <h1 className="text-5xl font-semibold tracking-tighter text-foreground sm:text-6xl lg:text-7xl">
@@ -58,7 +58,7 @@ export default function Page() {
           <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
             <Button
               size="lg"
-              className="h-11 min-w-[140px] bg-accent px-6 text-base font-medium text-accent-foreground shadow-lg shadow-accent/20 hover:bg-accent/90"
+              className="h-11 min-w-[140px] bg-foreground px-6 text-base font-medium text-background shadow-lg shadow-foreground/10 hover:bg-foreground/90"
             >
               시작하기
             </Button>
@@ -88,17 +88,17 @@ export default function Page() {
           {solutions.map((s) => (
             <Card
               key={s.name}
-              className="group relative overflow-hidden border-border/60 bg-card/80 transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-2xl hover:shadow-accent/5"
+              className="group relative overflow-hidden border-border/60 bg-card/80 transition-all duration-300 hover:-translate-y-1 hover:border-foreground/30 hover:shadow-2xl hover:shadow-foreground/5"
             >
-              {/* 호버 시 미세한 액센트 라인 */}
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+              {/* 호버 시 미세한 화이트 라인 */}
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/40 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
               <CardHeader className="pb-3">
                 <div className="mb-3 flex items-center gap-2">
-                  <span className="text-xs font-medium uppercase tracking-widest text-accent">
+                  <span className="text-xs font-medium uppercase tracking-widest text-foreground/70">
                     {s.tag}
                   </span>
-                  <span className="text-xs text-muted-foreground/60">·</span>
+                  <span className="text-xs text-muted-foreground/40">·</span>
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">
                     {s.agents} Agents
                   </span>
@@ -128,7 +128,7 @@ export default function Page() {
                   i > 0 ? "sm:border-l sm:border-border/40 sm:pl-10" : ""
                 }`}
               >
-                <p className="bg-gradient-to-br from-foreground via-foreground to-accent bg-clip-text font-mono text-5xl font-bold tracking-tighter tabular-nums text-transparent sm:text-6xl">
+                <p className="bg-gradient-to-br from-foreground via-foreground to-muted-foreground/60 bg-clip-text font-mono text-5xl font-bold tracking-tighter tabular-nums text-transparent sm:text-6xl">
                   {stat.value}
                 </p>
                 <p className="mt-3 text-sm font-medium text-muted-foreground">
