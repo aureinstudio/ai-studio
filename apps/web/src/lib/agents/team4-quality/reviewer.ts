@@ -36,7 +36,7 @@ export class Reviewer extends Agent<ReviewerInput, ReviewerOutput> {
   readonly id = "studio-10";
   readonly name = "검토";
   readonly role = "내용 정확성·일관성 검증";
-  protected get maxTokens(): number { return 2048; }
+  protected get maxTokens(): number { return 3072; }
 
   protected buildSystemPrompt(_input: ReviewerInput): string {
     return `당신은 검토 에이전트입니다.

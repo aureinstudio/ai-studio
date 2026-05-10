@@ -34,7 +34,7 @@ export class ComprehensiveReviewer extends Agent<ComprehensiveReviewerInput, Com
   readonly id = "studio-12";
   readonly name = "종합 검토";
   readonly role = "학습 목표 부합도 평가";
-  protected get maxTokens(): number { return 3072; }
+  protected get maxTokens(): number { return 4096; }
 
   protected buildSystemPrompt(_input: ComprehensiveReviewerInput): string {
     return `당신은 종합 검토 에이전트입니다.

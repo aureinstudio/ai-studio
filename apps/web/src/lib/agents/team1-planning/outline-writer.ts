@@ -40,7 +40,7 @@ export class OutlineWriter extends Agent<OutlineInput, OutlineOutput> {
   readonly id = "studio-04";
   readonly name = "개요 작성";
   readonly role = "챕터·섹션 구조 설계";
-  protected get maxTokens(): number { return 3072; }
+  protected get maxTokens(): number { return 6144; }
 
   protected buildSystemPrompt(input: OutlineInput): string {
     return `당신은 KEG 개요 작성 에이전트입니다.

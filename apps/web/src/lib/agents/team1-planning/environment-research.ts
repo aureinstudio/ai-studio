@@ -25,7 +25,7 @@ export class EnvironmentResearch extends Agent<
   readonly id = "studio-02";
   readonly name = "환경 조사";
   readonly role = "시장·트렌드·산업 컨텍스트";
-  protected get maxTokens(): number { return 2048; }
+  protected get maxTokens(): number { return 4096; }
 
   protected buildSystemPrompt(input: EnvironmentResearchInput): string {
     return `당신은 KEG 환경 조사 에이전트입니다.
