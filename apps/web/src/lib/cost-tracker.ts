@@ -8,7 +8,7 @@ const PRICING_PER_MILLION: Record<string, { input: number; output: number }> = {
   "claude-sonnet-4-5": { input: 3.0, output: 15.0 },
   "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
   "claude-opus-4-7": { input: 15.0, output: 75.0 },
-  // Haiku는 KEG 콘텐츠 품질 정책상 사용 금지 — 가격표에서 의도적으로 제외
+  "claude-haiku-4-5": { input: 1.0, output: 5.0 },
 };
 
 /**

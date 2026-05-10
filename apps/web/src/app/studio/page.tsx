@@ -14,7 +14,7 @@ import { AgentCollaborationView } from "@/components/AgentCollaborationView";
 
 type Level = "beginner" | "intermediate" | "advanced";
 type Length = "short" | "medium" | "long";
-type ModelId = "claude-sonnet-4-5" | "claude-opus-4-7";
+type ModelId = "claude-sonnet-4-5" | "claude-opus-4-7" | "claude-haiku-4-5";
 type JobStatus = "pending" | "running" | "completed" | "failed";
 
 type ExecutionPlan = {
@@ -44,16 +44,38 @@ type StudioJob = {
   created_at: string;
 };
 
-const MODEL_OPTIONS: { id: ModelId; label: string; desc: string; badge?: string }[] = [
+type ModelOption = {
+  id: ModelId;
+  label: string;
+  estTime: string;
+  estCost: string;
+  note: string;
+  badge?: string;
+};
+
+const MODEL_OPTIONS: ModelOption[] = [
+  {
+    id: "claude-haiku-4-5",
+    label: "Haiku 4.5",
+    estTime: "~80~120초",
+    estCost: "$0.06~0.12",
+    note: "빠름 · 시연 적합 · 품질 일부 양보",
+    badge: "빠름",
+  },
   {
     id: "claude-sonnet-4-5",
     label: "Sonnet 4.5",
-    desc: "기본 · 빠름 · $3/M",
+    estTime: "~200~280초",
+    estCost: "$0.30~0.50",
+    note: "기본 · 품질·속도 균형",
+    badge: "기본",
   },
   {
     id: "claude-opus-4-7",
     label: "Opus 4.7",
-    desc: "고품질 · 느림 · $15/M (5×)",
+    estTime: "~300~400초",
+    estCost: "$1.50~2.00",
+    note: "고품질 · 느림 · Sonnet 5×",
     badge: "고품질",
   },
 ];
@@ -264,7 +286,7 @@ export default function StudioPage() {
               <label className="mb-2 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 모델
               </label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {MODEL_OPTIONS.map((opt) => {
                   const active = model === opt.id;
                   return (
@@ -273,20 +295,24 @@ export default function StudioPage() {
                       type="button"
                       disabled={submitting || inProgress}
                       onClick={() => setModel(opt.id)}
-                      className={`flex flex-1 flex-col items-start rounded-md border px-4 py-2.5 text-left transition-colors ${
+                      className={`flex flex-col items-start rounded-md border px-3 py-3 text-left transition-colors ${
                         active
                           ? "border-foreground bg-foreground text-background"
                           : "border-border bg-transparent text-foreground hover:bg-card"
                       } disabled:opacity-50`}
                     >
-                      <span className="flex items-center gap-1.5 text-sm font-medium">
-                        {opt.label}
+                      <span className="flex w-full items-center justify-between gap-1.5">
+                        <span className="text-sm font-medium">{opt.label}</span>
                         {opt.badge && (
                           <span
                             className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-widest ${
                               active
                                 ? "bg-background/20 text-background"
-                                : "bg-foreground/10 text-muted-foreground"
+                                : opt.id === "claude-haiku-4-5"
+                                  ? "bg-emerald-500/10 text-emerald-400"
+                                  : opt.id === "claude-opus-4-7"
+                                    ? "bg-amber-500/10 text-amber-400"
+                                    : "bg-foreground/10 text-muted-foreground"
                             }`}
                           >
                             {opt.badge}
@@ -294,9 +320,19 @@ export default function StudioPage() {
                         )}
                       </span>
                       <span
-                        className={`mt-0.5 font-mono text-[11px] ${active ? "text-background/70" : "text-muted-foreground"}`}
+                        className={`mt-2 flex items-center gap-1 font-mono text-[11px] ${active ? "text-background/80" : "text-foreground/80"}`}
                       >
-                        {opt.desc}
+                        ⏱ {opt.estTime}
+                      </span>
+                      <span
+                        className={`flex items-center gap-1 font-mono text-[11px] ${active ? "text-background/80" : "text-foreground/80"}`}
+                      >
+                        💵 {opt.estCost}
+                      </span>
+                      <span
+                        className={`mt-1.5 text-[10px] leading-tight ${active ? "text-background/60" : "text-muted-foreground"}`}
+                      >
+                        {opt.note}
                       </span>
                     </button>
                   );
@@ -304,7 +340,12 @@ export default function StudioPage() {
               </div>
               {model === "claude-opus-4-7" && (
                 <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                  Opus는 Sonnet 대비 약 5배 비용이 발생합니다. 체인 1회 예상 비용: $0.50~$1.50
+                  Opus는 Sonnet 대비 약 5배 비용 + 더 긴 시간. Vercel Hobby 60초 한도 시 timeout 위험.
+                </p>
+              )}
+              {model === "claude-haiku-4-5" && (
+                <p className="mt-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+                  Haiku는 가장 빠르고 저렴 — 시연·반복 테스트 적합. 콘텐츠 품질은 Sonnet 대비 다소 떨어질 수 있습니다.
                 </p>
               )}
             </div>

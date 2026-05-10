@@ -16,14 +16,20 @@ export const anthropic = new Anthropic({
 });
 
 /**
- * 허용 모델 목록 — Sonnet 이상만. Haiku는 KEG 품질 정책상 제외.
+ * 허용 모델 — 사용자(본부장) 토글로 선택. 자동 다운그레이드 금지.
+ * 정책 (2026-05-10 갱신): Sonnet 기본 · Opus 고품질 · Haiku 속도/비용
  */
-export const ALLOWED_MODELS = ["claude-sonnet-4-5", "claude-opus-4-7"] as const;
+export const ALLOWED_MODELS = [
+  "claude-sonnet-4-5",
+  "claude-opus-4-7",
+  "claude-haiku-4-5",
+] as const;
 export type AllowedModel = (typeof ALLOWED_MODELS)[number];
 
 export const MODEL_LABELS: Record<AllowedModel, string> = {
   "claude-sonnet-4-5": "Sonnet 4.5",
   "claude-opus-4-7": "Opus 4.7",
+  "claude-haiku-4-5": "Haiku 4.5",
 };
 
 /**
