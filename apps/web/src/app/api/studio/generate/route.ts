@@ -6,8 +6,8 @@ import { runDynamicChain } from "@/lib/agents/orchestrator-dynamic";
 import { DAILY_USD_LIMIT } from "@/lib/limits";
 import { ALLOWED_MODELS } from "@/lib/anthropic/client";
 
-// Vercel function 최대 실행 시간 — after() 콜백 포함 60s budget
-export const maxDuration = 60;
+// Vercel Pro plan — 최대 800초. 13 에이전트 체인 (Sonnet ~225s, Opus ~380s) 여유 있게 수용
+export const maxDuration = 800;
 export const runtime = "nodejs";
 
 const requestSchema = z.object({
