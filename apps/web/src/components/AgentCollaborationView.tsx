@@ -76,6 +76,8 @@ export function AgentCollaborationView({
     if (skippedSet.has(agentId)) return "skipped";
     const log = logMap.get(agentId);
     if (!log) return jobStatus === "running" ? "waiting" : "idle";
+    // "started" → "running"으로 매핑 (UI 펄스)
+    if (log.status === "started") return "running";
     return log.status;
   };
 

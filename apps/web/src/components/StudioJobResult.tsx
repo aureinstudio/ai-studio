@@ -935,7 +935,11 @@ function LogsPanel({
                       ? "bg-emerald-400"
                       : log.status === "failed"
                         ? "bg-red-400"
-                        : "bg-muted-foreground"
+                        : log.status === "skipped"
+                          ? "bg-border opacity-50"
+                          : log.status === "started"
+                            ? "animate-pulse bg-foreground"
+                            : "bg-muted-foreground"
                   }`}
                 />
                 <div className="space-y-1.5">

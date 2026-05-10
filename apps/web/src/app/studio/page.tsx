@@ -425,6 +425,7 @@ export default function StudioPage() {
               const done = log?.status === "completed";
               const failed = log?.status === "failed";
               const skipped = log?.status === "skipped";
+              const started = log?.status === "started";
               const prevStageDone = AGENT_PIPELINE.filter(
                 (a) => a.stage < agent.stage,
               ).every(
@@ -433,7 +434,7 @@ export default function StudioPage() {
                   return aLog?.status === "completed" || aLog?.status === "skipped";
                 },
               );
-              const running = !log && job.status === "running" && prevStageDone;
+              const running = started || (!log && job.status === "running" && prevStageDone);
               return (
                 <li key={agent.id} className={`flex items-start gap-3 text-sm ${skipped ? "opacity-40" : ""}`}>
                   <span
@@ -481,7 +482,12 @@ export default function StudioPage() {
                       </span>
                     </p>
                     <p className="text-xs text-muted-foreground/70">{agent.role}</p>
-                    {log?.duration_ms != null && log.status !== "skipped" && (
+                    {started && (
+                      <p className="mt-1 font-mono text-xs text-foreground/70">
+                        ⏳ 생성 중… {log!.tokens_out > 0 ? `~${log!.tokens_out.toLocaleString()} tokens` : "응답 대기"}
+                      </p>
+                    )}
+                    {done && log?.duration_ms != null && (
                       <p className="mt-1 font-mono text-xs text-muted-foreground/60">
                         {(log.duration_ms / 1000).toFixed(1)}s ·{" "}
                         {log.tokens_in.toLocaleString()} in /{" "}

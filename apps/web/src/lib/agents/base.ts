@@ -65,17 +65,20 @@ export abstract class Agent<TInput, TOutput> {
     return DEFAULT_TEMPERATURE;
   }
 
-  async execute(input: TInput): Promise<AgentExecution<TOutput>> {
+  async execute(
+    input: TInput,
+    options?: { onProgress?: (tokensOut: number) => void | Promise<void> },
+  ): Promise<AgentExecution<TOutput>> {
     const startedAt = new Date().toISOString();
     const startMs = Date.now();
 
     let response;
     try {
-      response = await anthropic.messages.create({
+      // 스트리밍 — 진행 상황을 onProgress로 노출 (UI 실시간 토큰 카운트)
+      const stream = anthropic.messages.stream({
         model: this.model,
         max_tokens: this.maxTokens,
         temperature: this.temperature,
-        // 시스템 프롬프트 캐싱 — revise 루프·반복 요청 시 비용 절감
         system: [
           {
             type: "text" as const,
@@ -85,6 +88,26 @@ export abstract class Agent<TInput, TOutput> {
         ],
         messages: [{ role: "user", content: this.buildUserMessage(input) }],
       });
+
+      let charsSoFar = 0;
+      let lastProgressMs = 0;
+      for await (const event of stream) {
+        if (
+          event.type === "content_block_delta" &&
+          event.delta.type === "text_delta"
+        ) {
+          charsSoFar += event.delta.text.length;
+          if (options?.onProgress) {
+            const now = Date.now();
+            if (now - lastProgressMs > 1500) {
+              // 한국어 평균 ~3자/토큰 근사. 정확한 값은 finalMessage에서.
+              await options.onProgress(Math.floor(charsSoFar / 3));
+              lastProgressMs = now;
+            }
+          }
+        }
+      }
+      response = await stream.finalMessage();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const completedAt = new Date().toISOString();
