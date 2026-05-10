@@ -55,6 +55,7 @@ export async function runStudioChain(
   jobId: string,
   userId: string,
   input: CuratorInput,
+  model?: string,
 ): Promise<StudioChainResult> {
   const overallStart = Date.now();
   const agent_logs: AgentLog[] = [];
@@ -89,7 +90,7 @@ export async function runStudioChain(
 
   try {
     // ─── Stage 1: #01 종합 분석 ─────────────────────────────────
-    const analysisAgent = new ComprehensiveAnalysis();
+    const analysisAgent = new ComprehensiveAnalysis(model);
     const analysisRun = await analysisAgent.execute({
       topic: input.topic,
       level: input.level,
@@ -99,8 +100,8 @@ export async function runStudioChain(
     await recordCost(analysisRun.log, 1, analysisAgent.id);
 
     // ─── Stage 2: #02 + #03 병렬 ──────────────────────────────
-    const envAgent = new EnvironmentResearch();
-    const topicAgent = new TopicResearch();
+    const envAgent = new EnvironmentResearch(model);
+    const topicAgent = new TopicResearch(model);
 
     const [envSettled, topicSettled] = await Promise.allSettled([
       envAgent.execute({
@@ -141,7 +142,7 @@ export async function runStudioChain(
     await recordCost(topicRun.log, 3, topicAgent.id);
 
     // ─── Stage 3: #04 개요 작성 ─────────────────────────────────
-    const outlineAgent = new OutlineWriter();
+    const outlineAgent = new OutlineWriter(model);
     const outlineRun = await outlineAgent.execute({
       analysis: analysisRun.output,
       environment: envRun.output,
@@ -158,7 +159,7 @@ export async function runStudioChain(
     };
 
     // ─── Stage 4: #06 큐레이터 ────────────────────────────────
-    const curator = new ContentCurator();
+    const curator = new ContentCurator(model);
     const curatorRun = await curator.execute({
       ...input,
       planning,
@@ -167,7 +168,7 @@ export async function runStudioChain(
     await recordCost(curatorRun.log, 5, curator.id);
 
     // ─── Stage 5: #07 시각 디자인 기획 ─────────────────────────
-    const planner = new VisualPlanner();
+    const planner = new VisualPlanner(model);
     const plannerRun = await planner.execute({ curated: curatorRun.output });
     await pushLog(plannerRun.log);
     await recordCost(plannerRun.log, 6, planner.id);

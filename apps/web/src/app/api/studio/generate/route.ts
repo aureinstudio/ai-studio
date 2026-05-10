@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runStudioChain } from "@/lib/agents/orchestrator";
 import { DAILY_USD_LIMIT } from "@/lib/limits";
+import { ALLOWED_MODELS } from "@/lib/anthropic/client";
 
 // Vercel function 최대 실행 시간 — after() 콜백 포함 60s budget
 export const maxDuration = 60;
@@ -13,6 +14,7 @@ const requestSchema = z.object({
   topic: z.string().min(1, "주제를 입력해주세요").max(200),
   level: z.enum(["beginner", "intermediate", "advanced"]),
   length: z.enum(["short", "medium", "long"]),
+  model: z.enum(ALLOWED_MODELS).default("claude-sonnet-4-5"),
 });
 
 export async function POST(request: NextRequest) {
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
       topic: parsed.data.topic,
       level: parsed.data.level,
       length: parsed.data.length,
+      model: parsed.data.model,
       status: "pending",
       agent_logs: [],
     })
@@ -93,7 +96,7 @@ export async function POST(request: NextRequest) {
     console.log(`[studio/generate] after() callback started for job ${job.id}`);
     try {
       const admin = createAdminClient();
-      await runStudioChain(admin, job.id, user.id, parsed.data);
+      await runStudioChain(admin, job.id, user.id, parsed.data, parsed.data.model);
       console.log(`[studio/generate] chain completed for job ${job.id}`);
     } catch (err) {
       console.error(`[studio/generate] chain failed for job ${job.id}:`, err);

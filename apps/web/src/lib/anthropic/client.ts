@@ -16,12 +16,21 @@ export const anthropic = new Anthropic({
 });
 
 /**
+ * 허용 모델 목록 — Sonnet 이상만. Haiku는 KEG 품질 정책상 제외.
+ */
+export const ALLOWED_MODELS = ["claude-sonnet-4-5", "claude-opus-4-7"] as const;
+export type AllowedModel = (typeof ALLOWED_MODELS)[number];
+
+export const MODEL_LABELS: Record<AllowedModel, string> = {
+  "claude-sonnet-4-5": "Sonnet 4.5",
+  "claude-opus-4-7": "Opus 4.7",
+};
+
+/**
  * 기본 모델 — Claude Sonnet 4.5.
  * 가격: $3/M input, $15/M output (2026-05 기준).
- *
- * 향후 업그레이드 후보: claude-sonnet-4-6 (동일 가격) · claude-opus-4-7 (5x 비싸지만 더 똑똑)
  */
-export const MODEL = "claude-sonnet-4-5";
+export const MODEL: AllowedModel = "claude-sonnet-4-5";
 
 /**
  * 기본 max_tokens — Sonnet 4.5 모델 한계(64K)에 맞춰 *실질적으로 무제한*.

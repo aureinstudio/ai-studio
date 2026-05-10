@@ -44,13 +44,15 @@ export abstract class Agent<TInput, TOutput> {
   abstract readonly name: string;
   abstract readonly role: string;
 
+  constructor(private readonly modelOverride?: string) {}
+
   protected abstract buildSystemPrompt(input: TInput): string;
   protected abstract buildUserMessage(input: TInput): string;
   protected abstract parseOutput(rawText: string): TOutput;
 
-  /** 모델 override 포인트 — 하위 클래스가 다른 모델 쓰고 싶으면 재정의 */
+  /** 런타임 주입 모델 → 없으면 기본값 */
   protected get model(): string {
-    return MODEL;
+    return this.modelOverride ?? MODEL;
   }
 
   /** max_tokens override 포인트 */

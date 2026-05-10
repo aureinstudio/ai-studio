@@ -13,6 +13,7 @@ import {
 
 type Level = "beginner" | "intermediate" | "advanced";
 type Length = "short" | "medium" | "long";
+type ModelId = "claude-sonnet-4-5" | "claude-opus-4-7";
 type JobStatus = "pending" | "running" | "completed" | "failed";
 
 type StudioJob = {
@@ -26,8 +27,23 @@ type StudioJob = {
   topic: string;
   level: Level;
   length: Length;
+  model: ModelId;
   created_at: string;
 };
+
+const MODEL_OPTIONS: { id: ModelId; label: string; desc: string; badge?: string }[] = [
+  {
+    id: "claude-sonnet-4-5",
+    label: "Sonnet 4.5",
+    desc: "기본 · 빠름 · $3/M",
+  },
+  {
+    id: "claude-opus-4-7",
+    label: "Opus 4.7",
+    desc: "고품질 · 느림 · $15/M (5×)",
+    badge: "고품질",
+  },
+];
 
 const LEVEL_LABEL: Record<Level, string> = {
   beginner: "초급",
@@ -48,6 +64,7 @@ export default function StudioPage() {
   const [topic, setTopic] = useState("");
   const [level, setLevel] = useState<Level>("beginner");
   const [length, setLength] = useState<Length>("short");
+  const [model, setModel] = useState<ModelId>("claude-sonnet-4-5");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<StudioJob | null>(null);
@@ -97,7 +114,7 @@ export default function StudioPage() {
       const res = await fetch("/api/studio/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, level, length }),
+        body: JSON.stringify({ topic, level, length, model }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -123,6 +140,7 @@ export default function StudioPage() {
         topic,
         level,
         length,
+        model,
         created_at: new Date().toISOString(),
       });
     } catch (err) {
@@ -222,6 +240,55 @@ export default function StudioPage() {
               </div>
             </div>
 
+            <div>
+              <label className="mb-2 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                모델
+              </label>
+              <div className="flex gap-2">
+                {MODEL_OPTIONS.map((opt) => {
+                  const active = model === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      disabled={submitting || inProgress}
+                      onClick={() => setModel(opt.id)}
+                      className={`flex flex-1 flex-col items-start rounded-md border px-4 py-2.5 text-left transition-colors ${
+                        active
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-transparent text-foreground hover:bg-card"
+                      } disabled:opacity-50`}
+                    >
+                      <span className="flex items-center gap-1.5 text-sm font-medium">
+                        {opt.label}
+                        {opt.badge && (
+                          <span
+                            className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-widest ${
+                              active
+                                ? "bg-background/20 text-background"
+                                : "bg-foreground/10 text-muted-foreground"
+                            }`}
+                          >
+                            {opt.badge}
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className={`mt-0.5 font-mono text-[11px] ${active ? "text-background/70" : "text-muted-foreground"}`}
+                      >
+                        {opt.desc}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {model === "claude-opus-4-7" && (
+                <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                  Opus는 Sonnet 대비 약 5배 비용이 발생합니다. 체인 1회 예상 비용: $0.50~$1.50
+                </p>
+              )}
+            </div>
+
             {error && (
               <p className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
                 {error}
@@ -248,9 +315,14 @@ export default function StudioPage() {
       {job && (
         <div className="mt-6 rounded-lg border border-border/60 bg-card/40 p-5">
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Pipeline
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Pipeline
+              </p>
+              <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                {MODEL_OPTIONS.find((m) => m.id === job.model)?.label ?? job.model}
+              </span>
+            </div>
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                 job.status === "completed"
