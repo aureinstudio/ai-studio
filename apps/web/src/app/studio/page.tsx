@@ -52,12 +52,18 @@ const LEVEL_LABEL: Record<Level, string> = {
 };
 
 const AGENT_PIPELINE = [
-  { id: "studio-01", name: "종합 분석", role: "학습 목표 트리", stage: 1 },
-  { id: "studio-02", name: "환경 조사", role: "트렌드·키워드", stage: 2, parallel: true },
-  { id: "studio-03", name: "주제 조사", role: "지식 풀", stage: 2, parallel: true },
-  { id: "studio-04", name: "개요 작성", role: "챕터·섹션 구조", stage: 3 },
-  { id: "studio-06", name: "핵심 자료 큐레이터", role: "본문 작성", stage: 4 },
-  { id: "studio-07", name: "시각 디자인 기획", role: "슬라이드 재구조화", stage: 5 },
+  { id: "studio-01", name: "종합 분석", role: "학습 목표 트리", stage: 1, team: "T1" },
+  { id: "studio-02", name: "환경 조사", role: "트렌드·키워드", stage: 2, parallel: true, team: "T1" },
+  { id: "studio-03", name: "주제 조사", role: "지식 풀", stage: 2, parallel: true, team: "T1" },
+  { id: "studio-04", name: "개요 작성", role: "챕터·섹션 구조", stage: 3, team: "T1" },
+  { id: "studio-05", name: "학습프로세스 큐레이터", role: "학습 흐름·난이도 조정", stage: 4, team: "T2" },
+  { id: "studio-06", name: "핵심 자료 큐레이터", role: "본문 작성", stage: 5, team: "T2" },
+  { id: "studio-07", name: "시각 디자인 기획", role: "슬라이드 재구조화", stage: 6, team: "T2" },
+  { id: "studio-08", name: "인포그래픽 디자이너", role: "도표·인포그래픽 명세", stage: 7, team: "T2" },
+  { id: "studio-10", name: "검토", role: "내용 정확성·일관성 검증", stage: 8, parallel: true, team: "T4" },
+  { id: "studio-11", name: "형식 확인", role: "구조·표준 준수 검증", stage: 8, parallel: true, team: "T4" },
+  { id: "studio-12", name: "종합 검토", role: "학습 목표 부합도 평가", stage: 9, team: "T4" },
+  { id: "studio-13", name: "최종 품질 최적화", role: "가독성·완성도 마감", stage: 10, team: "T4" },
 ];
 
 export default function StudioPage() {
@@ -160,7 +166,7 @@ export default function StudioPage() {
           콘텐츠 생성
         </h1>
         <p className="mt-3 max-w-xl text-sm text-muted-foreground">
-          2개 에이전트(핵심 자료 큐레이터 → 시각 디자인 기획)가 순차 협업합니다.
+          12개 에이전트(TEAM 1 기획 → TEAM 2 제작 → TEAM 4 품질검증)가 순차 협업합니다.
         </p>
       </div>
 
@@ -383,6 +389,13 @@ export default function StudioPage() {
                           병렬
                         </span>
                       )}
+                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-widest ${
+                        agent.team === "T1" ? "bg-blue-500/10 text-blue-400" :
+                        agent.team === "T2" ? "bg-violet-500/10 text-violet-400" :
+                        "bg-amber-500/10 text-amber-400"
+                      }`}>
+                        {agent.team}
+                      </span>
                     </p>
                     <p className="text-xs text-muted-foreground/70">{agent.role}</p>
                     {log?.duration_ms != null && (

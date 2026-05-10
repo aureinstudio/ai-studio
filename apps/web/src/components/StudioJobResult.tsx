@@ -83,7 +83,7 @@ export type PlanningContent = {
   outline: OutlineOutput;
 };
 
-// ─── TEAM 2 (#06, #07) 기존 타입 ────────────────────────────
+// ─── TEAM 2 (#05~#08) 타입 ──────────────────────────────────
 export type CuratorOutput = {
   chapter_title: string;
   learning_objectives: string[];
@@ -101,12 +101,72 @@ export type SlideMeta = {
 
 export type PlannerOutput = { slides: SlideMeta[] };
 
+export type Infographic = {
+  slide_number: number;
+  type: "comparison" | "process" | "hierarchy" | "timeline" | "matrix" | "none";
+  title: string;
+  elements: string[];
+  layout_description: string;
+  color_emphasis: string[];
+};
+
+export type InfographicOutput = { infographics: Infographic[] };
+
+// ─── TEAM 4 (#10~#13) 타입 ──────────────────────────────────
+export type ScoreWithIssues = { score: number; issues: string[] };
+
+export type ReviewerOutput = {
+  factual_accuracy: ScoreWithIssues;
+  consistency: ScoreWithIssues;
+  completeness: { score: number; missing_elements: string[] };
+  overall_pass: boolean;
+};
+
+export type FormatCheckerOutput = {
+  structural_compliance: { score: number; violations: string[] };
+  naming_conventions: { score: number; violations: string[] };
+  metadata_completeness: { score: number; missing: string[] };
+  auto_fixable_issues: string[];
+  manual_review_required: string[];
+  overall_pass: boolean;
+};
+
+export type ObjectiveCoverage = {
+  objective_id: string;
+  coverage_score: number;
+  covered_in_sections: string[];
+  gaps: string[];
+};
+
+export type ComprehensiveReviewerOutput = {
+  objective_coverage: ObjectiveCoverage[];
+  overall_alignment_score: number;
+  strengths: string[];
+  weaknesses: string[];
+  recommendation: "approve" | "revise" | "reject";
+};
+
+export type QualityContent = {
+  reviewer: ReviewerOutput;
+  format_checker: FormatCheckerOutput;
+  comprehensive: ComprehensiveReviewerOutput;
+  revise_count: number;
+  error_message?: string;
+};
+
 export type StudioJobResultProps = {
-  /** v0.6: { curator, planner } / v0.9+: { planning, curator, planner } */
+  /** v0.6: { curator, planner } / v0.9+: { planning, curator, planner } / v0.10+: + team2, quality */
   content: {
     planning?: PlanningContent;
     curator: CuratorOutput;
     planner: PlannerOutput;
+    team2?: {
+      learning_sequence: unknown;
+      curator: CuratorOutput;
+      planner: PlannerOutput;
+      infographics: InfographicOutput;
+    };
+    quality?: QualityContent;
   };
   agentLogs: AgentLogEntry[];
   meta: {
@@ -116,7 +176,7 @@ export type StudioJobResultProps = {
   };
 };
 
-type ResultTab = "planning" | "content" | "slides" | "logs";
+type ResultTab = "planning" | "content" | "slides" | "quality" | "logs";
 
 const RELEVANCE_LABEL = {
   high: "높음",
@@ -131,6 +191,8 @@ const RELEVANCE_LABEL = {
  */
 export function StudioJobResult({ content, agentLogs, meta }: StudioJobResultProps) {
   const hasPlanning = !!content.planning;
+  const hasQuality = !!content.quality;
+  const infographics = content.team2?.infographics;
   const [activeTab, setActiveTab] = useState<ResultTab>(
     hasPlanning ? "planning" : "content",
   );
@@ -159,7 +221,23 @@ export function StudioJobResult({ content, agentLogs, meta }: StudioJobResultPro
         <span className="font-mono text-muted-foreground/60">
           {agentLogs.length} agents
         </span>
+        {hasQuality && content.quality!.revise_count > 0 && (
+          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+            재생성 {content.quality!.revise_count}회
+          </span>
+        )}
       </div>
+
+      {/* reject 경고 */}
+      {hasQuality && content.quality!.comprehensive.recommendation === "reject" && (
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-4">
+          <p className="mb-1 text-sm font-medium text-red-300">품질 검증 미통과</p>
+          <p className="text-sm text-red-300/80">
+            {content.quality!.error_message ??
+              "AI가 생성한 콘텐츠가 학습 목표를 충족하지 못했습니다. 다른 주제로 다시 시도하거나 수준을 조정해보세요."}
+          </p>
+        </div>
+      )}
 
       {/* 탭 헤더 */}
       <div className="flex flex-wrap gap-1 border-b border-border/60">
@@ -173,10 +251,18 @@ export function StudioJobResult({ content, agentLogs, meta }: StudioJobResultPro
           active={activeTab}
           setActive={setActiveTab}
         />
-        <TabButton tab="logs" label="에이전트 로그" active={activeTab} setActive={setActiveTab} />
+        {hasQuality && (
+          <TabButton
+            tab="quality"
+            label={`품질 검증 ${content.quality!.comprehensive.overall_alignment_score >= 85 ? "✓" : content.quality!.comprehensive.recommendation === "reject" ? "✗" : "△"}`}
+            active={activeTab}
+            setActive={setActiveTab}
+          />
+        )}
+        <TabButton tab="logs" label="협업 로그" active={activeTab} setActive={setActiveTab} />
       </div>
 
-      {/* 기획 산출물 탭 — v0.9.0+ */}
+      {/* 기획 산출물 탭 */}
       {activeTab === "planning" && content.planning && (
         <PlanningPanel planning={content.planning} />
       )}
@@ -185,9 +271,16 @@ export function StudioJobResult({ content, agentLogs, meta }: StudioJobResultPro
       {activeTab === "content" && <ContentPanel curator={content.curator} />}
 
       {/* 슬라이드 탭 */}
-      {activeTab === "slides" && <SlidesPanel slides={content.planner.slides} />}
+      {activeTab === "slides" && (
+        <SlidesPanel slides={content.planner.slides} infographics={infographics} />
+      )}
 
-      {/* 에이전트 로그 탭 */}
+      {/* 품질 검증 탭 — v0.10.0+ */}
+      {activeTab === "quality" && content.quality && (
+        <QualityPanel quality={content.quality} />
+      )}
+
+      {/* 협업 로그 탭 */}
       {activeTab === "logs" && (
         <LogsPanel
           agentLogs={agentLogs}
@@ -559,52 +652,258 @@ function ContentPanel({ curator }: { curator: CuratorOutput }) {
   );
 }
 
-function SlidesPanel({ slides }: { slides: SlideMeta[] }) {
+function SlidesPanel({
+  slides,
+  infographics,
+}: {
+  slides: SlideMeta[];
+  infographics?: InfographicOutput;
+}) {
+  const infMap = new Map(
+    (infographics?.infographics ?? []).map((inf) => [inf.slide_number, inf]),
+  );
+
   return (
     <div className="space-y-4">
-      {slides.map((slide) => (
-        <Card key={slide.slide_number} className="border-border/60 bg-card/80">
-          <CardHeader>
-            <p className="font-mono text-xs text-muted-foreground">
-              Slide {slide.slide_number.toString().padStart(2, "0")}
-            </p>
-            <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
-              {slide.title}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Content
+      {slides.map((slide) => {
+        const inf = infMap.get(slide.slide_number);
+        return (
+          <Card key={slide.slide_number} className="border-border/60 bg-card/80">
+            <CardHeader>
+              <p className="font-mono text-xs text-muted-foreground">
+                Slide {slide.slide_number.toString().padStart(2, "0")}
               </p>
-              <ul className="space-y-1 text-sm text-foreground/90">
-                {slide.content_blocks.map((block, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-muted-foreground/60">•</span>
-                    <span>{block}</span>
+              <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
+                {slide.title}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Content
+                </p>
+                <ul className="space-y-1 text-sm text-foreground/90">
+                  {slide.content_blocks.map((block, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="text-muted-foreground/60">•</span>
+                      <span>{block}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Visual
+                </p>
+                <p className="text-sm italic text-muted-foreground">
+                  {slide.visual_suggestions}
+                </p>
+              </div>
+              {inf && inf.type !== "none" && (
+                <div className="rounded-md border border-border/60 bg-background/40 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                      Infographic
+                    </p>
+                    <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                      {inf.type}
+                    </span>
+                  </div>
+                  <p className="mb-2 text-sm font-medium text-foreground">{inf.title}</p>
+                  <p className="mb-2 text-xs italic text-muted-foreground">
+                    {inf.layout_description}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {inf.elements.map((el, i) => (
+                      <span
+                        key={i}
+                        className="rounded-md border border-border bg-card px-2 py-0.5 text-xs text-foreground/80"
+                      >
+                        {el}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  Speaker Notes
+                </p>
+                <p className="text-sm leading-relaxed text-foreground/80">
+                  {slide.speaker_notes}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+function ScoreBar({ score, label }: { score: number; label: string }) {
+  const color =
+    score >= 80 ? "bg-emerald-400" : score >= 60 ? "bg-amber-400" : "bg-red-400";
+  const textColor =
+    score >= 80 ? "text-emerald-300" : score >= 60 ? "text-amber-300" : "text-red-300";
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={`font-mono font-semibold ${textColor}`}>{score}</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-border">
+        <div
+          className={`h-1.5 rounded-full transition-all ${color}`}
+          style={{ width: `${score}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function QualityPanel({ quality }: { quality: QualityContent }) {
+  const { reviewer, format_checker, comprehensive, revise_count } = quality;
+  const recommendationStyle = {
+    approve: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
+    revise: "bg-amber-500/10 text-amber-300 border-amber-500/30",
+    reject: "bg-red-500/10 text-red-300 border-red-500/30",
+  }[comprehensive.recommendation];
+  const recommendationLabel = {
+    approve: "승인",
+    revise: `수정 후 승인 (재시도 ${revise_count}회)`,
+    reject: "기각",
+  }[comprehensive.recommendation];
+
+  return (
+    <div className="space-y-5">
+      {/* 종합 점수 카드 */}
+      <Card className="border-border/60 bg-card/80">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              종합 검토 · #studio-12
+            </p>
+            <span className={`rounded-full border px-3 py-1 text-xs font-medium ${recommendationStyle}`}>
+              {recommendationLabel}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ScoreBar score={comprehensive.overall_alignment_score} label="학습 목표 부합도" />
+          <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
+            <PlanningList title="강점" items={comprehensive.strengths} />
+            <PlanningList title="약점" items={comprehensive.weaknesses} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 학습 목표별 커버리지 */}
+      <Card className="border-border/60 bg-card/80">
+        <CardHeader>
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            학습 목표 커버리지
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {comprehensive.objective_coverage.map((obj) => (
+            <div key={obj.objective_id} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {obj.objective_id}
+                </span>
+                <ScoreBar score={obj.coverage_score} label="" />
+              </div>
+              {obj.gaps.length > 0 && (
+                <ul className="ml-4 space-y-0.5 text-xs text-muted-foreground">
+                  {obj.gaps.map((gap, i) => (
+                    <li key={i} className="flex gap-1.5 text-amber-300/80">
+                      <span>△</span>
+                      <span>{gap}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* 검토 (#10) + 형식 확인 (#11) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Card className="border-border/60 bg-card/80">
+          <CardHeader>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              검토 · #studio-10
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ScoreBar score={reviewer.factual_accuracy.score} label="사실 정확성" />
+            <ScoreBar score={reviewer.consistency.score} label="일관성" />
+            <ScoreBar score={reviewer.completeness.score} label="완성도" />
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">판정</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  reviewer.overall_pass
+                    ? "bg-emerald-500/10 text-emerald-300"
+                    : "bg-red-500/10 text-red-300"
+                }`}
+              >
+                {reviewer.overall_pass ? "PASS" : "FAIL"}
+              </span>
+            </div>
+            {[...reviewer.factual_accuracy.issues, ...reviewer.consistency.issues, ...reviewer.completeness.missing_elements].length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {[...reviewer.factual_accuracy.issues, ...reviewer.consistency.issues].slice(0, 4).map((issue, i) => (
+                  <li key={i} className="text-xs text-muted-foreground">
+                    • {issue}
                   </li>
                 ))}
               </ul>
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Visual
-              </p>
-              <p className="text-sm italic text-muted-foreground">
-                {slide.visual_suggestions}
-              </p>
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                Speaker Notes
-              </p>
-              <p className="text-sm leading-relaxed text-foreground/80">
-                {slide.speaker_notes}
-              </p>
-            </div>
+            )}
           </CardContent>
         </Card>
-      ))}
+
+        <Card className="border-border/60 bg-card/80">
+          <CardHeader>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              형식 확인 · #studio-11
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ScoreBar score={format_checker.structural_compliance.score} label="구조 준수" />
+            <ScoreBar score={format_checker.naming_conventions.score} label="명명 규칙" />
+            <ScoreBar score={format_checker.metadata_completeness.score} label="메타데이터" />
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">판정</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  format_checker.overall_pass
+                    ? "bg-emerald-500/10 text-emerald-300"
+                    : "bg-red-500/10 text-red-300"
+                }`}
+              >
+                {format_checker.overall_pass ? "PASS" : "FAIL"}
+              </span>
+            </div>
+            {format_checker.auto_fixable_issues.length > 0 && (
+              <div className="mt-2">
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                  자동 수정
+                </p>
+                <ul className="space-y-0.5">
+                  {format_checker.auto_fixable_issues.slice(0, 3).map((issue, i) => (
+                    <li key={i} className="text-xs text-muted-foreground">
+                      • {issue}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
