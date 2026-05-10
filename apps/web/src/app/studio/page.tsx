@@ -36,8 +36,12 @@ const LEVEL_LABEL: Record<Level, string> = {
 };
 
 const AGENT_PIPELINE = [
-  { id: "studio-06", name: "핵심 자료 큐레이터", role: "본문 작성" },
-  { id: "studio-07", name: "시각 디자인 기획", role: "슬라이드 재구조화" },
+  { id: "studio-01", name: "종합 분석", role: "학습 목표 트리", stage: 1 },
+  { id: "studio-02", name: "환경 조사", role: "트렌드·키워드", stage: 2, parallel: true },
+  { id: "studio-03", name: "주제 조사", role: "지식 풀", stage: 2, parallel: true },
+  { id: "studio-04", name: "개요 작성", role: "챕터·섹션 구조", stage: 3 },
+  { id: "studio-06", name: "핵심 자료 큐레이터", role: "본문 작성", stage: 4 },
+  { id: "studio-07", name: "시각 디자인 기획", role: "슬라이드 재구조화", stage: 5 },
 ];
 
 export default function StudioPage() {
@@ -268,12 +272,15 @@ export default function StudioPage() {
               const log = job.agent_logs.find((l) => l.agent_id === agent.id);
               const done = log?.status === "completed";
               const failed = log?.status === "failed";
-              const prevCompleted =
-                i === 0 ||
-                job.agent_logs.find(
-                  (l) => l.agent_id === AGENT_PIPELINE[i - 1].id,
-                )?.status === "completed";
-              const running = !log && job.status === "running" && prevCompleted;
+              // 모든 *이전 stage* 에이전트가 완료되었으면 이 에이전트는 실행 가능
+              const prevStageDone = AGENT_PIPELINE.filter(
+                (a) => a.stage < agent.stage,
+              ).every(
+                (a) =>
+                  job.agent_logs.find((l) => l.agent_id === a.id)?.status ===
+                  "completed",
+              );
+              const running = !log && job.status === "running" && prevStageDone;
               return (
                 <li key={agent.id} className="flex items-start gap-3 text-sm">
                   <span
@@ -291,14 +298,19 @@ export default function StudioPage() {
                   </span>
                   <div className="flex-1">
                     <p
-                      className={`font-medium ${
+                      className={`flex items-center gap-2 font-medium ${
                         done || running ? "text-foreground" : "text-muted-foreground"
                       }`}
                     >
                       <span className="font-mono text-xs text-muted-foreground">
                         #{agent.id}
-                      </span>{" "}
-                      {agent.name}
+                      </span>
+                      <span>{agent.name}</span>
+                      {agent.parallel && (
+                        <span className="rounded-full bg-foreground/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-widest text-muted-foreground">
+                          병렬
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground/70">{agent.role}</p>
                     {log?.duration_ms != null && (
