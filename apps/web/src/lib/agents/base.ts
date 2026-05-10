@@ -191,12 +191,50 @@ export class AgentError extends Error {
 }
 
 /**
- * Claude 응답에서 마크다운 fence 제거 + JSON 파싱.
- * 모든 에이전트가 공통으로 쓰는 헬퍼.
+ * Claude 응답에서 JSON 객체를 견고하게 추출 + 파싱.
+ *
+ * 처리하는 케이스:
+ * - 마크다운 fence (```json ... ```)
+ * - JSON 앞·뒤의 설명 텍스트 ("다음 결과입니다: {...}", "{...}\n\n위 JSON은...")
+ * - 중첩된 { } 도 정확히 매칭 (depth counting)
  */
 export function parseJsonSafely<T>(rawText: string): T {
   let text = rawText.trim();
   text = text.replace(/^```(?:json)?\s*\n?/, "");
   text = text.replace(/\n?```\s*$/, "");
+  text = text.trim();
+
+  // depth counting으로 첫 객체의 시작·끝 추출
+  const start = text.indexOf("{");
+  if (start < 0) return JSON.parse(text) as T;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  let end = -1;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (ch === "\\") escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+  if (end > start) {
+    text = text.slice(start, end + 1);
+  }
   return JSON.parse(text) as T;
 }
