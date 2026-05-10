@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export type AgentLogEntry = {
   agent_id: string;
   agent_name: string;
-  status: "started" | "completed" | "failed";
+  status: "started" | "completed" | "failed" | "skipped";
   started_at: string;
   completed_at: string;
   duration_ms: number;

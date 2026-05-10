@@ -10,17 +10,30 @@ import {
   type CuratorOutput,
   type PlannerOutput,
 } from "@/components/StudioJobResult";
+import { AgentCollaborationView } from "@/components/AgentCollaborationView";
 
 type Level = "beginner" | "intermediate" | "advanced";
 type Length = "short" | "medium" | "long";
 type ModelId = "claude-sonnet-4-5" | "claude-opus-4-7";
 type JobStatus = "pending" | "running" | "completed" | "failed";
 
+type ExecutionPlan = {
+  skipped_agents: string[];
+  skip_reasons: Record<string, string>;
+  estimated_total_time_seconds: number;
+  estimated_total_cost_usd: number;
+  routing_notes: string;
+};
+
 type StudioJob = {
   id: string;
   status: JobStatus;
   agent_logs: AgentLogEntry[];
-  content: { curator: CuratorOutput; planner: PlannerOutput } | null;
+  content: {
+    curator: CuratorOutput;
+    planner: PlannerOutput;
+    plan?: ExecutionPlan;
+  } | null;
   cost_usd: number | null;
   duration_seconds: number | null;
   error: string | null;
@@ -52,6 +65,7 @@ const LEVEL_LABEL: Record<Level, string> = {
 };
 
 const AGENT_PIPELINE = [
+  { id: "studio-09", name: "오케스트레이터", role: "실행 계획 수립", stage: 0, team: "T3" },
   { id: "studio-01", name: "종합 분석", role: "학습 목표 트리", stage: 1, team: "T1" },
   { id: "studio-02", name: "환경 조사", role: "트렌드·키워드", stage: 2, parallel: true, team: "T1" },
   { id: "studio-03", name: "주제 조사", role: "지식 풀", stage: 2, parallel: true, team: "T1" },
@@ -345,39 +359,61 @@ export default function StudioPage() {
             </span>
           </div>
 
+          {/* 실행 계획 요약 (#09 완료 후) */}
+          {job.content?.plan && (
+            <div className="mb-4 rounded-md border border-border/40 bg-background/30 px-3 py-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">실행 계획</span>
+              {" · "}
+              <span className="font-mono">
+                예상 ${job.content.plan.estimated_total_cost_usd.toFixed(2)} / {job.content.plan.estimated_total_time_seconds}초
+              </span>
+              {job.content.plan.skipped_agents.length > 0 && (
+                <span className="ml-2 text-amber-300/80">
+                  스킵: {job.content.plan.skipped_agents.map((a) => a.replace("studio-", "#")).join(", ")}
+                </span>
+              )}
+              {job.content.plan.routing_notes && (
+                <p className="mt-0.5 text-muted-foreground/60 italic">{job.content.plan.routing_notes}</p>
+              )}
+            </div>
+          )}
+
           <ol className="space-y-3">
             {AGENT_PIPELINE.map((agent, i) => {
               const log = job.agent_logs.find((l) => l.agent_id === agent.id);
               const done = log?.status === "completed";
               const failed = log?.status === "failed";
-              // 모든 *이전 stage* 에이전트가 완료되었으면 이 에이전트는 실행 가능
+              const skipped = log?.status === "skipped";
               const prevStageDone = AGENT_PIPELINE.filter(
                 (a) => a.stage < agent.stage,
               ).every(
-                (a) =>
-                  job.agent_logs.find((l) => l.agent_id === a.id)?.status ===
-                  "completed",
+                (a) => {
+                  const aLog = job.agent_logs.find((l) => l.agent_id === a.id);
+                  return aLog?.status === "completed" || aLog?.status === "skipped";
+                },
               );
               const running = !log && job.status === "running" && prevStageDone;
               return (
-                <li key={agent.id} className="flex items-start gap-3 text-sm">
+                <li key={agent.id} className={`flex items-start gap-3 text-sm ${skipped ? "opacity-40" : ""}`}>
                   <span
                     className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs font-mono ${
                       done
                         ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
                         : failed
                           ? "border-red-500/40 bg-red-500/10 text-red-300"
-                          : running
-                            ? "animate-pulse border-foreground bg-foreground text-background"
-                            : "border-border text-muted-foreground"
+                          : skipped
+                            ? "border-border/40 text-muted-foreground/40"
+                            : running
+                              ? "animate-pulse border-foreground bg-foreground text-background"
+                              : "border-border text-muted-foreground"
                     }`}
                   >
-                    {done ? "✓" : failed ? "✗" : i + 1}
+                    {done ? "✓" : failed ? "✗" : skipped ? "–" : i + 1}
                   </span>
                   <div className="flex-1">
                     <p
                       className={`flex items-center gap-2 font-medium ${
-                        done || running ? "text-foreground" : "text-muted-foreground"
+                        done || running ? "text-foreground" : skipped ? "text-muted-foreground/40 line-through" : "text-muted-foreground"
                       }`}
                     >
                       <span className="font-mono text-xs text-muted-foreground">
@@ -389,16 +425,22 @@ export default function StudioPage() {
                           병렬
                         </span>
                       )}
+                      {skipped && (
+                        <span className="rounded-full bg-muted-foreground/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-widest text-muted-foreground/60">
+                          스킵
+                        </span>
+                      )}
                       <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-widest ${
                         agent.team === "T1" ? "bg-blue-500/10 text-blue-400" :
                         agent.team === "T2" ? "bg-violet-500/10 text-violet-400" :
+                        agent.team === "T3" ? "bg-emerald-500/10 text-emerald-400" :
                         "bg-amber-500/10 text-amber-400"
                       }`}>
                         {agent.team}
                       </span>
                     </p>
                     <p className="text-xs text-muted-foreground/70">{agent.role}</p>
-                    {log?.duration_ms != null && (
+                    {log?.duration_ms != null && log.status !== "skipped" && (
                       <p className="mt-1 font-mono text-xs text-muted-foreground/60">
                         {(log.duration_ms / 1000).toFixed(1)}s ·{" "}
                         {log.tokens_in.toLocaleString()} in /{" "}
@@ -414,6 +456,18 @@ export default function StudioPage() {
               );
             })}
           </ol>
+
+          {/* 협업 시각화 */}
+          <div className="mt-4 border-t border-border/40 pt-4">
+            <p className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              에이전트 협업 현황
+            </p>
+            <AgentCollaborationView
+              agentLogs={job.agent_logs}
+              skippedAgents={job.content?.plan?.skipped_agents ?? []}
+              jobStatus={job.status}
+            />
+          </div>
 
           {job.error && (
             <p className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">

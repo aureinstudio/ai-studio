@@ -2,7 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { runFullChain } from "@/lib/agents/orchestrator-full";
+import { runDynamicChain } from "@/lib/agents/orchestrator-dynamic";
 import { DAILY_USD_LIMIT } from "@/lib/limits";
 import { ALLOWED_MODELS } from "@/lib/anthropic/client";
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     console.log(`[studio/generate] after() callback started for job ${job.id}`);
     try {
       const admin = createAdminClient();
-      await runFullChain(admin, job.id, user.id, parsed.data, parsed.data.model);
+      await runDynamicChain(admin, job.id, user.id, parsed.data, parsed.data.model);
       console.log(`[studio/generate] chain completed for job ${job.id}`);
     } catch (err) {
       console.error(`[studio/generate] chain failed for job ${job.id}:`, err);

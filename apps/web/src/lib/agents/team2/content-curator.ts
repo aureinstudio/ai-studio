@@ -47,6 +47,7 @@ export class ContentCurator extends Agent<CuratorInput, CuratorOutput> {
   readonly id = "studio-06";
   readonly name = "핵심 자료 큐레이터";
   readonly role = "챕터 본문 작성 (TEAM1 outline 기반)";
+  protected get maxTokens(): number { return 8192; }
 
   protected buildSystemPrompt(input: CuratorInput): string {
     const base = `당신은 KEG 콘텐츠 큐레이터 에이전트입니다.

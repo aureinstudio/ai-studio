@@ -25,6 +25,7 @@ export class VisualPlanner extends Agent<PlannerInput, PlannerOutput> {
   readonly id = "studio-07";
   readonly name = "시각 디자인 기획";
   readonly role = "본문 → 슬라이드 재구조화 + 강사 노트";
+  protected get maxTokens(): number { return 6144; }
 
   protected buildSystemPrompt(_input: PlannerInput): string {
     return `당신은 KEG 시각 디자인 기획 에이전트입니다.

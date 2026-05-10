@@ -30,6 +30,7 @@ export class TopicResearch extends Agent<TopicResearchInput, TopicResearchOutput
   readonly id = "studio-03";
   readonly name = "주제 조사";
   readonly role = "학습 목표별 도메인 지식 풀";
+  protected get maxTokens(): number { return 4096; }
 
   protected buildSystemPrompt(input: TopicResearchInput): string {
     const objectivesList = input.learning_objective_tree

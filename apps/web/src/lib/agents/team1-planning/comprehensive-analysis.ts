@@ -34,6 +34,7 @@ export class ComprehensiveAnalysis extends Agent<AnalysisInput, AnalysisOutput> 
   readonly id = "studio-01";
   readonly name = "종합 분석";
   readonly role = "학습 목표 트리 + 학습자 프로파일";
+  protected get maxTokens(): number { return 3072; }
 
   protected buildSystemPrompt(input: AnalysisInput): string {
     const prereqGuide =

@@ -16,7 +16,7 @@ export type AgentExecution<TOutput> = {
 export type AgentLog = {
   agent_id: string;
   agent_name: string;
-  status: "started" | "completed" | "failed";
+  status: "started" | "completed" | "failed" | "skipped";
   started_at: string;
   completed_at: string;
   duration_ms: number;
@@ -75,7 +75,14 @@ export abstract class Agent<TInput, TOutput> {
         model: this.model,
         max_tokens: this.maxTokens,
         temperature: this.temperature,
-        system: this.buildSystemPrompt(input),
+        // 시스템 프롬프트 캐싱 — revise 루프·반복 요청 시 비용 절감
+        system: [
+          {
+            type: "text" as const,
+            text: this.buildSystemPrompt(input),
+            cache_control: { type: "ephemeral" as const },
+          },
+        ],
         messages: [{ role: "user", content: this.buildUserMessage(input) }],
       });
     } catch (err) {

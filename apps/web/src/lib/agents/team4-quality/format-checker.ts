@@ -37,6 +37,7 @@ export class FormatChecker extends Agent<FormatCheckerInput, FormatCheckerOutput
   readonly id = "studio-11";
   readonly name = "형식 확인";
   readonly role = "구조·표준 준수 검증";
+  protected get maxTokens(): number { return 2048; }
 
   protected buildSystemPrompt(_input: FormatCheckerInput): string {
     return `당신은 형식 확인 에이전트입니다.
