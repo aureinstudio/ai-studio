@@ -3,46 +3,22 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  StudioJobResult,
+  type AgentLogEntry,
+  type CuratorOutput,
+  type PlannerOutput,
+} from "@/components/StudioJobResult";
 
 type Level = "beginner" | "intermediate" | "advanced";
 type Length = "short" | "medium" | "long";
 type JobStatus = "pending" | "running" | "completed" | "failed";
 
-type AgentLog = {
-  agent_id: string;
-  agent_name: string;
-  status: "started" | "completed" | "failed";
-  started_at: string;
-  completed_at: string;
-  duration_ms: number;
-  tokens_in: number;
-  tokens_out: number;
-  cost_usd: number;
-  error?: string;
-};
-
-type CuratorOutput = {
-  chapter_title: string;
-  learning_objectives: string[];
-  main_content: { section: string; paragraphs: string[] }[];
-  examples: { title: string; type: string; body: string }[];
-};
-
-type SlideMeta = {
-  slide_number: number;
-  title: string;
-  content_blocks: string[];
-  visual_suggestions: string;
-  speaker_notes: string;
-};
-
-type PlannerOutput = { slides: SlideMeta[] };
-
 type StudioJob = {
   id: string;
   status: JobStatus;
-  agent_logs: AgentLog[];
+  agent_logs: AgentLogEntry[];
   content: { curator: CuratorOutput; planner: PlannerOutput } | null;
   cost_usd: number | null;
   duration_seconds: number | null;
@@ -64,8 +40,6 @@ const AGENT_PIPELINE = [
   { id: "studio-07", name: "시각 디자인 기획", role: "슬라이드 재구조화" },
 ];
 
-type ResultTab = "content" | "slides" | "logs";
-
 export default function StudioPage() {
   const [topic, setTopic] = useState("");
   const [level, setLevel] = useState<Level>("beginner");
@@ -73,7 +47,6 @@ export default function StudioPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<StudioJob | null>(null);
-  const [activeTab, setActiveTab] = useState<ResultTab>("content");
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Polling — 1초 간격으로 진행 상황 조회
@@ -107,14 +80,14 @@ export default function StudioPage() {
     };
   }, [job]);
 
-  const inProgress = job !== null && job.status !== "completed" && job.status !== "failed";
+  const inProgress =
+    job !== null && job.status !== "completed" && job.status !== "failed";
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     setJob(null);
-    setActiveTab("content");
 
     try {
       const res = await fetch("/api/studio/generate", {
@@ -123,9 +96,18 @@ export default function StudioPage() {
         body: JSON.stringify({ topic, level, length }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      if (!res.ok) {
+        // 일일 한도 도달은 별도 메시지로 노출
+        if (res.status === 429 && data?.error === "daily_limit_reached") {
+          throw new Error(
+            data.message ??
+              `일일 한도 도달: $${data.used_usd?.toFixed(4)} / $${data.limit_usd}`,
+          );
+        }
+        throw new Error(data?.error ?? `HTTP ${res.status}`);
+      }
 
-      // 즉시 jobId 받음 — polling으로 진행 상태 추적 시작
+      // 즉시 jobId 받음 — polling 시작
       setJob({
         id: data.jobId,
         status: "pending",
@@ -225,7 +207,11 @@ export default function StudioPage() {
                           : "border-border bg-transparent text-foreground hover:bg-card"
                       } disabled:cursor-not-allowed disabled:opacity-30`}
                     >
-                      {len === "short" ? "짧음" : len === "medium" ? "보통 (예정)" : "김 (예정)"}
+                      {len === "short"
+                        ? "짧음"
+                        : len === "medium"
+                          ? "보통 (예정)"
+                          : "김 (예정)"}
                     </button>
                   );
                 })}
@@ -244,7 +230,11 @@ export default function StudioPage() {
               disabled={submitting || !topic.trim() || inProgress}
               className="h-11 w-full bg-foreground text-base font-medium text-background hover:bg-foreground/90"
             >
-              {submitting ? "작업 접수 중..." : inProgress ? "에이전트 작업 중..." : "생성하기"}
+              {submitting
+                ? "작업 접수 중..."
+                : inProgress
+                  ? "에이전트 작업 중..."
+                  : "생성하기"}
             </Button>
           </form>
         </CardContent>
@@ -280,8 +270,9 @@ export default function StudioPage() {
               const failed = log?.status === "failed";
               const prevCompleted =
                 i === 0 ||
-                job.agent_logs.find((l) => l.agent_id === AGENT_PIPELINE[i - 1].id)?.status ===
-                  "completed";
+                job.agent_logs.find(
+                  (l) => l.agent_id === AGENT_PIPELINE[i - 1].id,
+                )?.status === "completed";
               const running = !log && job.status === "running" && prevCompleted;
               return (
                 <li key={agent.id} className="flex items-start gap-3 text-sm">
@@ -304,7 +295,9 @@ export default function StudioPage() {
                         done || running ? "text-foreground" : "text-muted-foreground"
                       }`}
                     >
-                      <span className="font-mono text-xs text-muted-foreground">#{agent.id}</span>{" "}
+                      <span className="font-mono text-xs text-muted-foreground">
+                        #{agent.id}
+                      </span>{" "}
                       {agent.name}
                     </p>
                     <p className="text-xs text-muted-foreground/70">{agent.role}</p>
@@ -312,7 +305,8 @@ export default function StudioPage() {
                       <p className="mt-1 font-mono text-xs text-muted-foreground/60">
                         {(log.duration_ms / 1000).toFixed(1)}s ·{" "}
                         {log.tokens_in.toLocaleString()} in /{" "}
-                        {log.tokens_out.toLocaleString()} out · ${log.cost_usd.toFixed(4)}
+                        {log.tokens_out.toLocaleString()} out · $
+                        {log.cost_usd.toFixed(4)}
                       </p>
                     )}
                     {failed && log?.error && (
@@ -332,266 +326,18 @@ export default function StudioPage() {
         </div>
       )}
 
-      {/* ═══ 결과 (탭 분리) ═══ */}
+      {/* ═══ 결과 (공유 컴포넌트) ═══ */}
       {job?.status === "completed" && job.content && (
-        <div className="mt-10 space-y-5">
-          {/* 메타 */}
-          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-            <span>
-              ⚡{" "}
-              <span className="font-mono tabular-nums text-foreground">
-                {job.duration_seconds?.toFixed(1) ?? "-"}s
-              </span>
-            </span>
-            <span>
-              💵{" "}
-              <span className="font-mono tabular-nums text-foreground">
-                ${job.cost_usd?.toFixed(4) ?? "-"}
-              </span>
-            </span>
-            <span className="font-mono text-muted-foreground/60">
-              job: {job.id.slice(0, 8)}…
-            </span>
-          </div>
-
-          {/* 탭 헤더 */}
-          <div className="flex gap-1 border-b border-border/60">
-            {(["content", "slides", "logs"] as ResultTab[]).map((t) => {
-              const label =
-                t === "content"
-                  ? "본문"
-                  : t === "slides"
-                    ? `슬라이드 (${job.content!.planner.slides.length})`
-                    : "에이전트 로그";
-              return (
-                <button
-                  key={t}
-                  onClick={() => setActiveTab(t)}
-                  className={`-mb-px rounded-t-md border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                    activeTab === t
-                      ? "border-foreground text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 탭 내용: 본문 */}
-          {activeTab === "content" && (
-            <div className="space-y-5">
-              <Card className="border-border/60 bg-card/80">
-                <CardHeader>
-                  <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                    챕터 제목
-                  </p>
-                  <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">
-                    {job.content.curator.chapter_title}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-
-              <Card className="border-border/60 bg-card/80">
-                <CardHeader>
-                  <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                    학습 목표
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {job.content.curator.learning_objectives.map((obj, i) => (
-                      <li key={i} className="flex gap-3 text-sm text-foreground">
-                        <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border font-mono text-xs text-muted-foreground">
-                          {i + 1}
-                        </span>
-                        <span>{obj}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-
-              {job.content.curator.main_content.map((section, i) => (
-                <Card key={i} className="border-border/60 bg-card/80">
-                  <CardHeader>
-                    <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                      섹션 {i + 1}
-                    </p>
-                    <CardTitle className="text-lg font-semibold tracking-tight text-foreground">
-                      {section.section}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
-                      {section.paragraphs.map((p, j) => (
-                        <p key={j}>{p}</p>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-
-              {job.content.curator.examples.map((ex, i) => (
-                <Card key={i} className="border-border/60 bg-card/80">
-                  <CardHeader>
-                    <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                      예제 · {ex.type}
-                    </p>
-                    <CardTitle className="text-base font-semibold text-foreground">
-                      {ex.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <pre className="whitespace-pre-wrap rounded-md bg-secondary/50 p-3 font-mono text-xs text-foreground/90">
-                      {ex.body}
-                    </pre>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {/* 탭 내용: 슬라이드 */}
-          {activeTab === "slides" && (
-            <div className="space-y-4">
-              {job.content.planner.slides.map((slide) => (
-                <Card key={slide.slide_number} className="border-border/60 bg-card/80">
-                  <CardHeader>
-                    <p className="font-mono text-xs text-muted-foreground">
-                      Slide {slide.slide_number.toString().padStart(2, "0")}
-                    </p>
-                    <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
-                      {slide.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                        Content
-                      </p>
-                      <ul className="space-y-1 text-sm text-foreground/90">
-                        {slide.content_blocks.map((block, i) => (
-                          <li key={i} className="flex gap-2">
-                            <span className="text-muted-foreground/60">•</span>
-                            <span>{block}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                        Visual
-                      </p>
-                      <p className="text-sm italic text-muted-foreground">
-                        {slide.visual_suggestions}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                        Speaker Notes
-                      </p>
-                      <p className="text-sm leading-relaxed text-foreground/80">
-                        {slide.speaker_notes}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {/* 탭 내용: 에이전트 로그 (타임라인) */}
-          {activeTab === "logs" && (
-            <Card className="border-border/60 bg-card/80">
-              <CardContent className="p-6">
-                <div className="space-y-6">
-                  {job.agent_logs.map((log, i) => {
-                    const startTime = new Date(log.started_at);
-                    const endTime = new Date(log.completed_at);
-                    return (
-                      <div key={i} className="relative pl-8">
-                        {i < job.agent_logs.length - 1 && (
-                          <span className="absolute left-2.5 top-6 h-full w-px bg-border" />
-                        )}
-                        <span
-                          className={`absolute left-1 top-1 inline-flex h-3 w-3 items-center justify-center rounded-full ring-4 ring-background ${
-                            log.status === "completed"
-                              ? "bg-emerald-400"
-                              : log.status === "failed"
-                                ? "bg-red-400"
-                                : "bg-muted-foreground"
-                          }`}
-                        />
-                        <div className="space-y-1.5">
-                          <div className="flex flex-wrap items-baseline gap-2">
-                            <span className="font-mono text-xs text-muted-foreground">
-                              #{log.agent_id}
-                            </span>
-                            <span className="text-base font-semibold text-foreground">
-                              {log.agent_name}
-                            </span>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest ${
-                                log.status === "completed"
-                                  ? "bg-emerald-500/10 text-emerald-300"
-                                  : log.status === "failed"
-                                    ? "bg-red-500/10 text-red-300"
-                                    : "bg-muted-foreground/10 text-muted-foreground"
-                              }`}
-                            >
-                              {log.status}
-                            </span>
-                          </div>
-                          <p className="font-mono text-xs text-muted-foreground/70">
-                            {startTime.toLocaleTimeString("ko-KR")} →{" "}
-                            {endTime.toLocaleTimeString("ko-KR")} (
-                            {(log.duration_ms / 1000).toFixed(2)}s)
-                          </p>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs">
-                            <span className="text-muted-foreground">
-                              tokens:{" "}
-                              <span className="text-foreground">
-                                {log.tokens_in.toLocaleString()}
-                              </span>{" "}
-                              in /{" "}
-                              <span className="text-foreground">
-                                {log.tokens_out.toLocaleString()}
-                              </span>{" "}
-                              out
-                            </span>
-                            <span className="text-muted-foreground">
-                              cost:{" "}
-                              <span className="text-foreground">
-                                ${log.cost_usd.toFixed(4)}
-                              </span>
-                            </span>
-                          </div>
-                          {log.error && <p className="text-xs text-red-300">{log.error}</p>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {job.agent_logs.length > 1 && (
-                  <div className="mt-6 border-t border-border/40 pt-4">
-                    <p className="font-mono text-xs text-muted-foreground">
-                      total:{" "}
-                      <span className="text-foreground">
-                        {job.duration_seconds?.toFixed(2)}s
-                      </span>{" "}
-                      ·{" "}
-                      <span className="text-foreground">
-                        ${job.cost_usd?.toFixed(4)}
-                      </span>{" "}
-                      · {job.agent_logs.length} agents
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+        <div className="mt-10">
+          <StudioJobResult
+            content={job.content}
+            agentLogs={job.agent_logs}
+            meta={{
+              durationSeconds: job.duration_seconds,
+              costUsd: job.cost_usd,
+              jobId: job.id,
+            }}
+          />
         </div>
       )}
     </div>

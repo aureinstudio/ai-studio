@@ -1,14 +1,9 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { DAILY_USD_LIMIT, budgetSeverity } from "@/lib/limits";
 
-// 사용자별 동적 페이지 — 정적 캐싱 비활성화
 export const dynamic = "force-dynamic";
 
 type Profile = {
@@ -18,7 +13,22 @@ type Profile = {
   role: "user" | "admin";
 };
 
-async function getProfile(): Promise<Profile | null> {
+type RecentJob = {
+  id: string;
+  topic: string;
+  status: "pending" | "running" | "completed" | "failed";
+  cost_usd: number | null;
+  created_at: string;
+};
+
+type Stats = {
+  totalJobs: number;
+  successfulJobs: number;
+  monthCost: number;
+  todayCost: number;
+};
+
+async function getDashboardData() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -31,60 +41,86 @@ async function getProfile(): Promise<Profile | null> {
     .eq("id", user.id)
     .single<Profile>();
 
-  // profiles 트리거가 아직 적용 안 됐어도 페이지가 깨지지 않도록 폴백
-  return (
-    profile ?? {
-      id: user.id,
-      email: user.email ?? "",
-      name: (user.user_metadata?.name as string | undefined) ?? null,
-      role: "user",
-    }
-  );
+  const safeProfile: Profile = profile ?? {
+    id: user.id,
+    email: user.email ?? "",
+    name: (user.user_metadata?.name as string | undefined) ?? null,
+    role: "user",
+  };
+
+  // 통계 계산
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  // 총 / 성공 / 이번달 비용
+  const [{ count: totalJobs }, { count: successfulJobs }, monthRes, todayRes] =
+    await Promise.all([
+      supabase
+        .from("studio_jobs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .is("deleted_at", null),
+      supabase
+        .from("studio_jobs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("status", "completed")
+        .is("deleted_at", null),
+      supabase
+        .from("cost_log")
+        .select("cost_usd")
+        .eq("user_id", user.id)
+        .gte("created_at", monthStart.toISOString()),
+      supabase
+        .from("cost_log")
+        .select("cost_usd")
+        .eq("user_id", user.id)
+        .gte("created_at", todayStart.toISOString()),
+    ]);
+
+  const sumUsd = (rows: { cost_usd: number | null }[] | null) =>
+    (rows ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
+
+  const stats: Stats = {
+    totalJobs: totalJobs ?? 0,
+    successfulJobs: successfulJobs ?? 0,
+    monthCost: sumUsd(monthRes.data),
+    todayCost: sumUsd(todayRes.data),
+  };
+
+  // 최근 5개
+  const { data: recent } = await supabase
+    .from("studio_jobs")
+    .select("id, topic, status, cost_usd, created_at")
+    .eq("user_id", user.id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  return {
+    profile: safeProfile,
+    stats,
+    recent: (recent ?? []) as RecentJob[],
+  };
 }
 
-type DashboardCard = {
-  title: string;
-  description: string;
-  cta: string;
-  state: "active" | "empty" | "disabled" | "admin";
-};
-
 export default async function DashboardPage() {
-  const profile = await getProfile();
-  if (!profile) redirect("/login");
+  const data = await getDashboardData();
+  if (!data) redirect("/login");
 
-  const cards: DashboardCard[] = [
-    {
-      title: "Studio로 콘텐츠 만들기",
-      description:
-        "13개 AI 에이전트로 교재·슬라이드·퀴즈를 동시 생성. 자료 기획부터 최종 품질 검토까지.",
-      cta: "곧 출시",
-      state: "disabled",
-    },
-    {
-      title: "내 작업 기록",
-      description:
-        "지금까지 만든 콘텐츠와 진행 중인 작업을 확인합니다.",
-      cta: "비어있음",
-      state: "empty",
-    },
-    ...(profile.role === "admin"
-      ? [
-          {
-            title: "관리자 패널",
-            description:
-              "사용자 관리, 시스템 설정, KPI 모니터링.",
-            cta: "관리",
-            state: "admin" as const,
-          },
-        ]
-      : []),
-  ];
-
+  const { profile, stats, recent } = data;
   const greeting = profile.name ?? profile.email.split("@")[0];
+  const successRate =
+    stats.totalJobs > 0 ? (stats.successfulJobs / stats.totalJobs) * 100 : 0;
+  const budgetPct = Math.min((stats.todayCost / DAILY_USD_LIMIT) * 100, 100);
+  const sev = budgetSeverity(stats.todayCost);
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-16 lg:px-10 lg:py-24">
+      {/* Header */}
       <div className="mb-12">
         <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
           Dashboard
@@ -102,40 +138,207 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card) => (
-          <Card
-            key={card.title}
-            className={`border-border/60 bg-card/80 transition-all duration-300 ${
-              card.state === "disabled"
-                ? "opacity-60"
-                : "hover:-translate-y-1 hover:border-foreground/30 hover:shadow-2xl hover:shadow-foreground/5"
-            }`}
-          >
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
-                {card.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-sm leading-relaxed text-muted-foreground">
-                {card.description}
-              </CardDescription>
-              <p
-                className={`mt-4 text-xs font-medium uppercase tracking-widest ${
-                  card.state === "disabled"
-                    ? "text-muted-foreground/50"
-                    : card.state === "empty"
-                      ? "text-muted-foreground"
-                      : "text-foreground"
-                }`}
-              >
-                {card.cta}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Stats 3카드 */}
+      <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <Card className="border-border/60 bg-card/80">
+          <CardContent className="p-6">
+            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              총 작업
+            </p>
+            <p className="font-mono text-3xl font-bold tabular-nums text-foreground">
+              {stats.totalJobs}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">건 (삭제 제외)</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 bg-card/80">
+          <CardContent className="p-6">
+            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              이번 달 비용
+            </p>
+            <p className="font-mono text-3xl font-bold tabular-nums text-foreground">
+              ${stats.monthCost.toFixed(2)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">USD · 이번 달 누적</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 bg-card/80">
+          <CardContent className="p-6">
+            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              성공률
+            </p>
+            <p className="font-mono text-3xl font-bold tabular-nums text-foreground">
+              {successRate.toFixed(0)}
+              <span className="text-xl">%</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {stats.successfulJobs} / {stats.totalJobs}
+            </p>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Daily Budget Progress */}
+      <Card className="mb-8 border-border/60 bg-card/80">
+        <CardContent className="p-6">
+          <div className="mb-3 flex items-baseline justify-between">
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              오늘 사용 한도
+            </p>
+            <p className="font-mono text-sm tabular-nums text-foreground">
+              <span
+                className={
+                  sev === "block"
+                    ? "text-red-300"
+                    : sev === "warn"
+                      ? "text-yellow-300"
+                      : "text-foreground"
+                }
+              >
+                ${stats.todayCost.toFixed(4)}
+              </span>{" "}
+              <span className="text-muted-foreground">
+                / ${DAILY_USD_LIMIT.toFixed(2)}
+              </span>
+            </p>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/50">
+            <div
+              className={`h-full transition-all duration-500 ${
+                sev === "block"
+                  ? "bg-red-400"
+                  : sev === "warn"
+                    ? "bg-yellow-400"
+                    : "bg-foreground"
+              }`}
+              style={{ width: `${budgetPct}%` }}
+            />
+          </div>
+          {sev === "block" && (
+            <p className="mt-3 text-xs text-red-300">
+              ⚠️ 일일 한도 도달 — 새 작업 생성이 차단됩니다. 자정 이후 재개.
+            </p>
+          )}
+          {sev === "warn" && (
+            <p className="mt-3 text-xs text-yellow-300">
+              ⚠️ 일일 한도 80% 도달 — 곧 차단될 수 있습니다.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 빠른 액션 + 최근 작업 */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {/* 액션 카드 */}
+        <Link
+          href="/studio"
+          className="group rounded-lg border border-border/60 bg-card/80 p-6 transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-2xl hover:shadow-foreground/5"
+        >
+          <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            New
+          </p>
+          <h3 className="text-xl font-semibold tracking-tight text-foreground">
+            Studio로 콘텐츠 만들기
+          </h3>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            2개 에이전트가 협업하여 챕터 본문 + 슬라이드를 자동 생성.
+          </p>
+          <p className="mt-4 text-xs font-medium uppercase tracking-widest text-foreground">
+            시작 →
+          </p>
+        </Link>
+
+        <Link
+          href="/dashboard/history"
+          className="group rounded-lg border border-border/60 bg-card/80 p-6 transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-2xl hover:shadow-foreground/5"
+        >
+          <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            History
+          </p>
+          <h3 className="text-xl font-semibold tracking-tight text-foreground">
+            내 작업 기록
+          </h3>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            과거 작업 조회·재실행·공유. 총 {stats.totalJobs}건.
+          </p>
+          <p className="mt-4 text-xs font-medium uppercase tracking-widest text-foreground">
+            보기 →
+          </p>
+        </Link>
+
+        {profile.role === "admin" && (
+          <div className="rounded-lg border border-border/60 bg-card/80 p-6 opacity-70">
+            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              Admin
+            </p>
+            <h3 className="text-xl font-semibold tracking-tight text-foreground">
+              관리자 패널
+            </h3>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              사용자 관리·KPI 모니터링·전사 비용.
+            </p>
+            <p className="mt-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/50">
+              곧 출시
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 최근 작업 목록 */}
+      {recent.length > 0 && (
+        <div className="mt-10">
+          <div className="mb-4 flex items-baseline justify-between">
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              최근 작업
+            </p>
+            <Link
+              href="/dashboard/history"
+              className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              전체 보기 →
+            </Link>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-border/60 bg-card/40">
+            <ul className="divide-y divide-border/40">
+              {recent.map((j) => (
+                <li key={j.id}>
+                  <Link
+                    href={`/dashboard/history/${j.id}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-card/60"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-foreground">{j.topic}</p>
+                      <p className="font-mono text-xs text-muted-foreground/70">
+                        {new Date(j.created_at).toLocaleString("ko-KR")}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3 text-xs">
+                      {j.cost_usd != null && (
+                        <span className="font-mono tabular-nums text-muted-foreground">
+                          ${j.cost_usd.toFixed(4)}
+                        </span>
+                      )}
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest ${
+                          j.status === "completed"
+                            ? "bg-emerald-500/10 text-emerald-300"
+                            : j.status === "failed"
+                              ? "bg-red-500/10 text-red-300"
+                              : "bg-foreground/10 text-foreground"
+                        }`}
+                      >
+                        {j.status}
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

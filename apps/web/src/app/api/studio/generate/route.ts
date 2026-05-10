@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runStudioChain } from "@/lib/agents/orchestrator";
+import { DAILY_USD_LIMIT } from "@/lib/limits";
 
 // Vercel function 최대 실행 시간 — after() 콜백 포함 60s budget
 export const maxDuration = 60;
@@ -39,7 +40,31 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 3. job pending 생성 (즉시 응답용)
+  // 3. 일일 비용 한도 체크 — 한도 도달 시 새 작업 차단
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const { data: todayCosts } = await supabase
+    .from("cost_log")
+    .select("cost_usd")
+    .eq("user_id", user.id)
+    .gte("created_at", todayStart.toISOString());
+  const usedUsd = (todayCosts ?? []).reduce(
+    (sum, row) => sum + Number(row.cost_usd ?? 0),
+    0,
+  );
+  if (usedUsd >= DAILY_USD_LIMIT) {
+    return NextResponse.json(
+      {
+        error: "daily_limit_reached",
+        used_usd: usedUsd,
+        limit_usd: DAILY_USD_LIMIT,
+        message: `오늘 사용 비용 $${usedUsd.toFixed(4)}이 일일 한도 $${DAILY_USD_LIMIT}에 도달했습니다.`,
+      },
+      { status: 429 },
+    );
+  }
+
+  // 4. job pending 생성 (즉시 응답용)
   const { data: job, error: jobError } = await supabase
     .from("studio_jobs")
     .insert({
