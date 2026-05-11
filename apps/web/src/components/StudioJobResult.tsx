@@ -196,6 +196,32 @@ export function StudioJobResult({ content, agentLogs, meta }: StudioJobResultPro
   const [activeTab, setActiveTab] = useState<ResultTab>(
     hasPlanning ? "planning" : "content",
   );
+  const [pptxLoading, setPptxLoading] = useState(false);
+  const [pptxUrl, setPptxUrl] = useState<string | null>(null);
+  const [pptxError, setPptxError] = useState<string | null>(null);
+
+  async function handleExportPptx() {
+    if (!meta.jobId) return;
+    setPptxLoading(true);
+    setPptxError(null);
+    try {
+      const res = await fetch(`/api/studio/jobs/${meta.jobId}/pptx`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail ?? data?.message ?? data?.error ?? `HTTP ${res.status}`);
+      setPptxUrl(data.url);
+      // 자동 다운로드 트리거
+      const a = document.createElement("a");
+      a.href = data.url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      setPptxError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setPptxLoading(false);
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -226,7 +252,21 @@ export function StudioJobResult({ content, agentLogs, meta }: StudioJobResultPro
             재생성 {content.quality!.revise_count}회
           </span>
         )}
+        {meta.jobId && (
+          <button
+            onClick={handleExportPptx}
+            disabled={pptxLoading}
+            className="ml-auto rounded-md border border-border bg-card px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-card/60 disabled:opacity-50"
+          >
+            {pptxLoading ? "생성 중..." : pptxUrl ? "⬇ PPT 재다운로드" : "⬇ PPT 다운로드"}
+          </button>
+        )}
       </div>
+      {pptxError && (
+        <p className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-300">
+          PPT 생성 실패: {pptxError}
+        </p>
+      )}
 
       {/* reject 경고 */}
       {hasQuality && content.quality!.comprehensive.recommendation === "reject" && (

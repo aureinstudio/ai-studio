@@ -9,7 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * - cast-video: 영상 파일 (mp4)
  * - cast-captions: 자막 파일 (srt, json)
  */
-export type StorageBucket = "cast-audio" | "cast-video" | "cast-captions";
+export type StorageBucket = "cast-audio" | "cast-video" | "cast-captions" | "studio-pptx";
 
 export async function uploadToStorage(
   supabase: SupabaseClient,
