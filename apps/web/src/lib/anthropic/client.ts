@@ -9,10 +9,11 @@ import Anthropic from "@anthropic-ai/sdk";
 export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
   // Sonnet 한국어 대량 생성(8K-15K tokens) = 100-150s 가능.
-  // VisualPlanner는 큐레이터 입력 받아 추가 출력 → 가장 느림.
-  // 180s 여유 + 재시도 0 (재시도해도 같은 이유로 실패).
   timeout: 180_000,
-  maxRetries: 0,
+  // SDK 자동 재시도 — 429 (rate limit) 시 Retry-After 헤더 기반 백오프.
+  // 5xx 서버 오류·네트워크 일시 장애도 자동 복구.
+  // 408/timeout은 같은 이유로 또 실패할 가능성 높지만 일시적 hiccup도 있어 3회 시도.
+  maxRetries: 3,
 });
 
 /**
