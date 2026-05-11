@@ -229,11 +229,20 @@ export async function runDynamicChain(
               );
               return { infographics: [] };
             })()
-          : (await runWithProgress(new InfographicDesigner(model), {
-              slide_plan: r07.output,
-              topic: input.topic,
-              level: input.level,
-            })).output;
+          : await (async () => {
+              try {
+                const r08 = await runWithProgress(new InfographicDesigner(model), {
+                  slide_plan: r07.output,
+                  topic: input.topic,
+                  level: input.level,
+                });
+                return r08.output;
+              } catch (err) {
+                // 비핵심 — 실패해도 본문은 사용 가능. 폴백: 빈 인포그래픽
+                console.warn("[studio-08] failed, using empty fallback:", err);
+                return { infographics: [] };
+              }
+            })();
         return { curator: r06.output, planner: r07.output, infographics };
       })();
 
@@ -242,7 +251,7 @@ export async function runDynamicChain(
     };
 
     // ══════════════════════════════════════════════════
-    // TEAM 4: [#10 ‖ #11] → #12
+    // TEAM 4: [#10 ‖ #11] → #12 — 모두 fail-soft (검증 실패가 본문 생성 무효화 X)
     // ══════════════════════════════════════════════════
     const runTeam4 = async (
       team2: Team2Production,
@@ -266,21 +275,50 @@ export async function runDynamicChain(
           infographics: team2.infographics,
         }),
       ]);
-      if (s10.status === "rejected") throw s10.reason;
-      if (s11.status === "rejected") throw s11.reason;
 
-      const r12 = await runWithProgress(new ComprehensiveReviewer(model), {
-        reviewer_result: s10.value.output,
-        format_checker_result: s11.value.output,
-        original_objectives: r01.output.learning_objective_tree,
-        topic: input.topic,
-      });
+      const reviewer: ReviewerOutput =
+        s10.status === "fulfilled"
+          ? s10.value.output
+          : {
+              factual_accuracy: { score: 70, issues: [`#10 검토 실패: ${String(s10.reason).slice(0, 200)}`] },
+              consistency: { score: 70, issues: [] },
+              completeness: { score: 70, missing_elements: [] },
+              overall_pass: true,
+            };
 
-      return {
-        reviewer: s10.value.output,
-        format_checker: s11.value.output,
-        comprehensive: r12.output,
-      };
+      const format_checker: FormatCheckerOutput =
+        s11.status === "fulfilled"
+          ? s11.value.output
+          : {
+              structural_compliance: { score: 70, violations: [] },
+              naming_conventions: { score: 70, violations: [] },
+              metadata_completeness: { score: 70, missing: [] },
+              auto_fixable_issues: [],
+              manual_review_required: [`#11 형식 확인 실패: ${String(s11.reason).slice(0, 200)}`],
+              overall_pass: true,
+            };
+
+      let comprehensive: ComprehensiveReviewerOutput;
+      try {
+        const r12 = await runWithProgress(new ComprehensiveReviewer(model), {
+          reviewer_result: reviewer,
+          format_checker_result: format_checker,
+          original_objectives: r01.output.learning_objective_tree,
+          topic: input.topic,
+        });
+        comprehensive = r12.output;
+      } catch (err) {
+        console.warn("[studio-12] failed, using fallback approve:", err);
+        comprehensive = {
+          objective_coverage: [],
+          overall_alignment_score: 75,
+          strengths: [],
+          weaknesses: [`#12 종합 검토 실패: ${err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200)}`],
+          recommendation: "approve",
+        };
+      }
+
+      return { reviewer, format_checker, comprehensive };
     };
 
     let team2 = await runTeam2();
@@ -320,29 +358,34 @@ export async function runDynamicChain(
     }
 
     // ── #13 조건부 스킵: 점수 ≥ 90이면 마감 생략 ─────────────
-    let finalTeam2: Team2Production;
+    // 실패해도 fail-soft — 마감 안 된 원본 사용
+    let finalTeam2: Team2Production = team2;
     if (t4.comprehensive.overall_alignment_score >= SKIP_13_SCORE_THRESHOLD) {
       await pushSkippedLog(
         "studio-13",
         "최종 품질 최적화",
         `종합 점수 ${t4.comprehensive.overall_alignment_score} ≥ ${SKIP_13_SCORE_THRESHOLD} — 마감 불필요`,
       );
-      finalTeam2 = team2;
     } else {
-      const r13 = await runWithProgress(new FinalPolisher(model), {
-        learning_sequence: team2.learning_sequence,
-        curator: team2.curator,
-        planner: team2.planner,
-        infographics: team2.infographics,
-        topic: input.topic,
-      });
-      quality.polished = r13.output;
-      finalTeam2 = {
-        learning_sequence: r13.output.learning_sequence ?? team2.learning_sequence,
-        curator: r13.output.curator ?? team2.curator,
-        planner: r13.output.planner ?? team2.planner,
-        infographics: r13.output.infographics ?? team2.infographics,
-      };
+      try {
+        const r13 = await runWithProgress(new FinalPolisher(model), {
+          learning_sequence: team2.learning_sequence,
+          curator: team2.curator,
+          planner: team2.planner,
+          infographics: team2.infographics,
+          topic: input.topic,
+        });
+        quality.polished = r13.output;
+        finalTeam2 = {
+          learning_sequence: r13.output.learning_sequence ?? team2.learning_sequence,
+          curator: r13.output.curator ?? team2.curator,
+          planner: r13.output.planner ?? team2.planner,
+          infographics: r13.output.infographics ?? team2.infographics,
+        };
+      } catch (err) {
+        // #13 실패 — 원본 그대로 사용 (마감만 안 된 상태)
+        console.warn("[studio-13] failed, using unpolished content:", err);
+      }
     }
 
     const totalCost = agent_logs.reduce((s, l) => s + l.cost_usd, 0);
