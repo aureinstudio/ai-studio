@@ -32,6 +32,27 @@ export type AvatarPreset = {
 const VERIFIED_ASIAN_FEMALE = "b81ecd3f96274a89b7fedfdefae05bbe";
 const VERIFIED_ASIAN_MALE = "be2f01d03e3440b096f58f4845b5a06a";
 
+// 본부장 직접 확인 (2026-05-11): 한국어 voice ✓
+export const VERIFIED_KOREAN_FEMALE_VOICE = "bef4755ca1f442359c2fe6420690c8f7";
+export const VERIFIED_KOREAN_MALE_VOICE = "9d81087c3f9a45df8c22ab91cf46ca89";
+
+/**
+ * 성별 기반 한국어 voice_id 자동 선택 (HeyGen 자체 TTS 사용 시).
+ */
+export function resolveVoiceId(gender: AvatarGender): string {
+  return gender === "female"
+    ? VERIFIED_KOREAN_FEMALE_VOICE
+    : VERIFIED_KOREAN_MALE_VOICE;
+}
+
+/**
+ * preset_id → AvatarPreset 전체 반환 (gender 정보 포함).
+ */
+export function resolveAvatarPreset(presetId: string | undefined): AvatarPreset | null {
+  if (!presetId) return AVATAR_PRESETS[1] ?? null; // f-30s 기본
+  return AVATAR_PRESETS.find((p) => p.preset_id === presetId) ?? null;
+}
+
 export const AVATAR_PRESETS: AvatarPreset[] = [
   // 여성
   {
@@ -122,21 +143,30 @@ export function resolveAvatarId(presetId: string | undefined): string {
 /**
  * Custom avatar_id 사용 (사용자가 HeyGen 대시보드에서 직접 복사).
  * preset_id가 "custom:..." 형식이면 그 뒤를 avatar_id로 사용.
+ * gender 정보 — preset에서 자동 추론, custom은 기본 female.
  */
 export function parseAvatarSelection(selection: string): {
   type: "preset" | "custom";
   heygen_avatar_id: string;
+  heygen_voice_id: string;
+  gender: AvatarGender;
   preset_id?: string;
 } {
   if (selection.startsWith("custom:")) {
     return {
       type: "custom",
       heygen_avatar_id: selection.slice("custom:".length),
+      heygen_voice_id: VERIFIED_KOREAN_FEMALE_VOICE, // custom은 기본 여성 voice
+      gender: "female",
     };
   }
+  const preset = resolveAvatarPreset(selection);
+  const gender = preset?.gender ?? "female";
   return {
     type: "preset",
     heygen_avatar_id: resolveAvatarId(selection),
+    heygen_voice_id: resolveVoiceId(gender),
+    gender,
     preset_id: selection,
   };
 }

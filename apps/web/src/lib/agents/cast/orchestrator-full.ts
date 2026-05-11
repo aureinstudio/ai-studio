@@ -48,6 +48,7 @@ export async function runCastFullChain(
   model?: string,
   avatarId?: string,
   voiceSource: VoiceSource = "heygen",
+  voiceId?: string,
 ): Promise<CastFullResult> {
   const overallStart = Date.now();
   const agent_logs: AgentLog[] = [];
@@ -242,7 +243,7 @@ export async function runCastFullChain(
         scenes,
         topic,
         avatarId,
-        undefined, // voiceId — 기본 한국어 사용
+        voiceId,
         async (status, elapsedSec) => {
           videoStarted.error = `${status} (${elapsedSec}s 경과)`;
           await persistLogs();

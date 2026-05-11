@@ -193,6 +193,7 @@ export async function POST(request: NextRequest) {
         undefined, // model — Studio model 별도 (Cast는 기본 Sonnet)
         avatar.heygen_avatar_id,
         parsed.data.voice_source,
+        avatar.heygen_voice_id, // 성별에 매칭된 한국어 voice (HeyGen TTS 시 사용)
       );
       console.log(`[cast/generate] Full chain completed for cast job ${castJob.id}`);
     } catch (err) {
