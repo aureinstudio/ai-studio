@@ -7,6 +7,14 @@ export const DAILY_USD_LIMIT = Number(
 );
 
 /**
+ * Cast (TTS · Avatar) 일일 한도 — LLM보다 10배 비싸므로 별도 가드.
+ * 영상 생성 1회 = $1~3, 무방비 사용 시 빠르게 누적.
+ */
+export const CAST_DAILY_LIMIT_USD = Number(
+  process.env.CAST_DAILY_LIMIT_USD ?? 30,
+);
+
+/**
  * 한도 도달 % 기반 색상 결정.
  * - <80%: 녹색 (정상)
  * - 80~99%: 노랑 (주의)
