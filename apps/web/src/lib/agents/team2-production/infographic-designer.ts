@@ -28,7 +28,6 @@ export class InfographicDesigner extends Agent<InfographicInput, InfographicOutp
   readonly id = "studio-08";
   readonly name = "인포그래픽 디자이너";
   readonly role = "도표·인포그래픽 명세";
-  protected get maxTokens(): number { return 4096; }
 
   protected buildSystemPrompt(input: InfographicInput): string {
     return `당신은 인포그래픽 디자이너입니다.

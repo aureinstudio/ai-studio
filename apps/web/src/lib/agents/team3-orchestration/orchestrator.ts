@@ -31,10 +31,6 @@ export class StudioOrchestrator extends Agent<OrchestratorInput, OrchestratorPla
   readonly name = "오케스트레이터";
   readonly role = "실행 계획 수립·라우팅 결정";
 
-  protected get maxTokens(): number {
-    return 1024;
-  }
-
   protected buildSystemPrompt(input: OrchestratorInput): string {
     return `당신은 13개 에이전트 협업의 오케스트레이터입니다.
 역할: 입력을 분석하여 최적 실행 계획을 수립합니다.

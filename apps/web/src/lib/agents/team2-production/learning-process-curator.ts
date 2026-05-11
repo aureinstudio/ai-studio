@@ -36,7 +36,6 @@ export class LearningProcessCurator extends Agent<LearningProcessInput, Learning
   readonly id = "studio-05";
   readonly name = "학습프로세스 큐레이터";
   readonly role = "학습 흐름·난이도 조정";
-  protected get maxTokens(): number { return 3072; }
 
   protected buildSystemPrompt(input: LearningProcessInput): string {
     return `당신은 학습프로세스 큐레이터입니다.

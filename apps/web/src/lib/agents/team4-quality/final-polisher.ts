@@ -28,7 +28,6 @@ export class FinalPolisher extends Agent<PolisherInput, PolishedOutput> {
   readonly id = "studio-13";
   readonly name = "최종 품질 최적화";
   readonly role = "가독성·완성도 마감";
-  protected get maxTokens(): number { return 16384; }
 
   protected buildSystemPrompt(_input: PolisherInput): string {
     return `당신은 최종 품질 최적화 에이전트입니다.
