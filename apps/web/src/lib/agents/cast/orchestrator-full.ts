@@ -172,27 +172,53 @@ export async function runCastFullChain(
       },
     );
     await replaceLog(ttsStarted, tts.log);
-    if (tts.log.status === "failed") throw new Error(tts.log.error ?? "TTS failed");
+    if (tts.log.status === "failed") {
+      // TTS 실패는 fail-soft — 스크립트는 이미 생성됨, 자막은 글자 수 기반 추정으로 진행
+      // 영상(#04)은 음성 파일 필요하므로 스킵, 자막(#05)은 계속
+      console.warn("[cast-03] failed, continuing without audio (scripts + captions only):", tts.log.error);
+    }
 
     // ─── #04 AvatarVideo (HeyGen) ───────────────────
-    const videoStarted = await pushStartedLog("cast-04", "아바타 영상 합성");
-    const video = await runCastAvatarVideo(
-      supabase,
-      castJobId,
-      userId,
-      tts.result.audio_files,
-      topic,
-      async (status, elapsedSec) => {
-        videoStarted.error = `${status} (${elapsedSec}s 경과)`;
-        await persistLogs();
-      },
-    );
-    // 진행 상태 메시지는 완료 시 정리
-    videoStarted.error = undefined;
-    await replaceLog(videoStarted, video.log);
-    if (video.log.status === "failed") {
-      // 영상 실패는 fail-soft: 자막은 계속 생성
-      console.warn("[cast-04] failed, continuing with captions only:", video.log.error);
+    // 음성 파일이 1개 이상 있을 때만 영상 생성 시도. TTS 전체 실패 시 자동 스킵.
+    let video: { result: { video_url: string; video_path: string | null; duration_sec: number; cost_usd: number; heygen_video_id: string }; log: AgentLog };
+    if (tts.result.audio_files.length === 0) {
+      const now = new Date().toISOString();
+      const skipLog: AgentLog = {
+        agent_id: "cast-04",
+        agent_name: "아바타 영상 합성",
+        status: "skipped",
+        started_at: now,
+        completed_at: now,
+        duration_ms: 0,
+        tokens_in: 0,
+        tokens_out: 0,
+        cost_usd: 0,
+        error: "TTS 음성이 없어 영상 생성 스킵",
+      };
+      agent_logs.push(skipLog);
+      await persistLogs();
+      video = {
+        result: { video_url: "", video_path: null, duration_sec: 0, cost_usd: 0, heygen_video_id: "" },
+        log: skipLog,
+      };
+    } else {
+      const videoStarted = await pushStartedLog("cast-04", "아바타 영상 합성");
+      video = await runCastAvatarVideo(
+        supabase,
+        castJobId,
+        userId,
+        tts.result.audio_files,
+        topic,
+        async (status, elapsedSec) => {
+          videoStarted.error = `${status} (${elapsedSec}s 경과)`;
+          await persistLogs();
+        },
+      );
+      videoStarted.error = undefined;
+      await replaceLog(videoStarted, video.log);
+      if (video.log.status === "failed") {
+        console.warn("[cast-04] failed, continuing with captions only:", video.log.error);
+      }
     }
 
     // ─── #05 Captions·Chapters ──────────────────────
