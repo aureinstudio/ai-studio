@@ -83,16 +83,27 @@ export async function runCastAvatarVideo(
   }
 
   try {
+    // avatar_id 형식 감지:
+    // - 32자 hex UUID → talking_photo (사용자 업로드·custom avatar)
+    // - 그 외 (예: Anna_public_3_20240108) → 공개 avatar
+    const isTalkingPhoto = /^[a-f0-9]{32}$/i.test(avatarId);
+    const character = isTalkingPhoto
+      ? {
+          type: "talking_photo" as const,
+          talking_photo_id: avatarId,
+        }
+      : {
+          type: "avatar" as const,
+          avatar_id: avatarId,
+          avatar_style: "normal" as const,
+        };
+
     // 1. video_inputs — 슬라이드별 scene 빌드
     // ElevenLabs 모드: audio_url 사용 / HeyGen 모드: input_text + voice_id 사용
     const video_inputs = scenes
       .sort((a, b) => a.slide_number - b.slide_number)
       .map((scene) => ({
-        character: {
-          type: "avatar" as const,
-          avatar_id: avatarId,
-          avatar_style: "normal" as const,
-        },
+        character,
         voice: scene.audio_url
           ? ({ type: "audio" as const, audio_url: scene.audio_url })
           : ({ type: "text" as const, input_text: scene.text ?? "", voice_id: voiceId }),
