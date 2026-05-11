@@ -38,8 +38,11 @@ const AGE_DESC: Record<GenerateAvatarOptions["age_group"], string> = {
 export async function generateAvatarImage(
   options: GenerateAvatarOptions,
 ): Promise<GeneratedImage> {
-  const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) throw new Error("GOOGLE_API_KEY not configured");
+  // 둘 중 하나 설정되면 작동 — 본부장이 GEMINI_API_KEY 또는 GOOGLE_API_KEY 중 선호 이름 사용 가능
+  const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY (또는 GOOGLE_API_KEY) not configured");
+  }
 
   const genderDesc =
     options.gender === "female" ? "Korean female" : "Korean male";
