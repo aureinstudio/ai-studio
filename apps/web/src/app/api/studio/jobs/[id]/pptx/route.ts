@@ -72,20 +72,22 @@ export async function POST(
       infographics,
     });
 
-    // service-role 클라이언트로 업로드 (사용자 RLS 우회)
-    const admin = createAdminClient();
-    const filename = `${job.id}/${sanitizeFilename(job.topic)}.pptx`;
+    // Storage 키는 ASCII-only (한글 등 비ASCII 문자 거부됨)
+    // 표시용 파일명은 한글 유지 (브라우저 다운로드 시 사용)
+    const storagePath = `${job.id}/presentation.pptx`;
+    const displayFilename = `${sanitizeFilename(job.topic)}.pptx`;
+
     const { url } = await uploadToStorage(
       admin,
       "studio-pptx",
-      filename,
+      storagePath,
       buffer,
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     );
 
     return NextResponse.json({
       url,
-      filename: `${sanitizeFilename(job.topic)}.pptx`,
+      filename: displayFilename,
       size_bytes: buffer.length,
     });
   } catch (err) {
