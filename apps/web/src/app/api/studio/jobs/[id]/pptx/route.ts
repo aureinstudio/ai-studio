@@ -72,9 +72,10 @@ export async function POST(
       infographics,
     });
 
-    // Storage 키는 ASCII-only (한글 등 비ASCII 문자 거부됨)
-    // 표시용 파일명은 한글 유지 (브라우저 다운로드 시 사용)
-    const storagePath = `${job.id}/presentation.pptx`;
+    // Storage 키: 매 호출마다 timestamp 추가 — 브라우저·CDN 캐시 회피
+    // 디자인 변경 후에도 즉시 새 파일 받을 수 있도록
+    const timestamp = Date.now();
+    const storagePath = `${job.id}/v${timestamp}.pptx`;
     const displayFilename = `${sanitizeFilename(job.topic)}.pptx`;
 
     const { url } = await uploadToStorage(
@@ -89,6 +90,7 @@ export async function POST(
       url,
       filename: displayFilename,
       size_bytes: buffer.length,
+      generated_at: new Date(timestamp).toISOString(),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
