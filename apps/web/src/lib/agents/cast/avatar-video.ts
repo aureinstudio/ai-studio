@@ -5,9 +5,10 @@ import type { AudioFile } from "./tts";
 import type { AgentLog } from "../base";
 
 const HEYGEN_API_BASE = "https://api.heygen.com";
-// HeyGen 공개 무료 avatar. 사용자가 자체 avatar로 교체 가능.
+// HeyGen 공개 avatar. 사용자가 자체 avatar로 교체 가능.
 // 목록: https://docs.heygen.com/reference/list-avatars
-const DEFAULT_AVATAR_ID = "Daisy-inskirt-20220818";
+// Anna_public_3는 2024년 도입된 표준 공개 avatar — API 무료 등급
+const DEFAULT_AVATAR_ID = "Anna_public_3_20240108";
 const POLL_INTERVAL_MS = 15_000;
 const MAX_POLL_ATTEMPTS = 80; // 80 × 15s = 20분 최대
 
