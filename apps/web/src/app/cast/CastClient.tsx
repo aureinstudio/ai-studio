@@ -46,7 +46,7 @@ type CostEstimate = {
 
 type CastJob = {
   id: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "rendering" | "completed" | "failed";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   output: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -197,6 +197,7 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
   }, [job]);
 
   const inProgress = job !== null && job.status !== "completed" && job.status !== "failed";
+  const isRendering = job?.status === "rendering";
 
   async function handleSubmit() {
     if (!selectedId || !approved) return;
@@ -626,11 +627,14 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
                     ? "bg-emerald-500/10 text-emerald-300"
                     : job.status === "failed"
                       ? "bg-red-500/10 text-red-300"
-                      : "bg-foreground/10 text-foreground"
+                      : job.status === "rendering"
+                        ? "bg-amber-500/10 text-amber-300"
+                        : "bg-foreground/10 text-foreground"
                 }`}
               >
                 {job.status === "pending" && "✓ 접수됨"}
                 {job.status === "running" && "⏳ 실행 중"}
+                {job.status === "rendering" && "🎬 영상 렌더링 중 (5~15분, 알림 대기)"}
                 {job.status === "completed" && "✅ 완료"}
                 {job.status === "failed" && "❌ 실패"}
               </span>
@@ -692,6 +696,12 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
               })}
             </ol>
 
+            {isRendering && (
+              <p className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+                🎬 영상 렌더링은 HeyGen에서 백그라운드로 진행 중입니다 (5~15분 소요).
+                완료되면 자동으로 알림 받아 페이지가 갱신됩니다. 이 페이지를 닫고 나중에 돌아오셔도 됩니다.
+              </p>
+            )}
             {job.error_message && (
               <p className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
                 {job.error_message}

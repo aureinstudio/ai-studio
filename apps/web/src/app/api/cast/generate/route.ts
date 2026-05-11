@@ -211,6 +211,14 @@ export async function POST(request: NextRequest) {
         avatarVoiceId = avatar.heygen_voice_id;
       }
 
+      // HeyGen webhook URL — 영상 완료 알림 받을 자체 엔드포인트
+      const origin =
+        request.headers.get("origin") ??
+        request.headers.get("x-forwarded-host")
+          ? `https://${request.headers.get("x-forwarded-host")}`
+          : `https://${request.headers.get("host") ?? "ai-studio-drab-nine.vercel.app"}`;
+      const webhookUrl = `${origin}/api/cast/webhooks/heygen`;
+
       await runCastFullChain(
         admin,
         castJob.id,
@@ -222,6 +230,7 @@ export async function POST(request: NextRequest) {
         avatarHeygenId,
         parsed.data.voice_source,
         avatarVoiceId,
+        webhookUrl,
       );
       console.log(`[cast/generate] Full chain completed for cast job ${castJob.id}`);
     } catch (err) {

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { SlideAnalyzer, type SlideInputMeta, type SlideAnalyzerOutput } from "./slide-analyzer";
 import { ScriptWriter, type ScriptWriterOutput } from "./script-writer";
 import { runCastTTS, type TTSResult } from "./tts";
-import { runCastAvatarVideo, type VideoResult, type VoiceScene, type VoiceSource } from "./avatar-video";
+import { runCastAvatarVideo, submitHeyGenVideo, type VideoResult, type VoiceScene, type VoiceSource } from "./avatar-video";
 import { runCastCaptionsChapters, type CaptionsResult } from "./captions-chapters";
 import { Agent, AgentError, type AgentLog } from "../base";
 import { logCost } from "@/lib/cost-tracker";
@@ -49,6 +49,7 @@ export async function runCastFullChain(
   avatarId?: string,
   voiceSource: VoiceSource = "heygen",
   voiceId?: string,
+  webhookUrl?: string,
 ): Promise<CastFullResult> {
   const overallStart = Date.now();
   const agent_logs: AgentLog[] = [];
@@ -235,24 +236,63 @@ export async function runCastFullChain(
         log: skipLog,
       };
     } else {
+      // ⚡ webhook 비동기 모드 — HeyGen에 제출만 (3~5초)
+      // 폴링 없음, Vercel timeout 무관. webhook이 완료 알림.
       const videoStarted = await pushStartedLog("cast-04", "아바타 영상 합성");
-      video = await runCastAvatarVideo(
-        supabase,
-        castJobId,
-        userId,
-        scenes,
-        topic,
-        avatarId,
-        voiceId,
-        async (status, elapsedSec) => {
-          videoStarted.error = `${status} (${elapsedSec}s 경과)`;
-          await persistLogs();
-        },
-      );
-      videoStarted.error = undefined;
-      await replaceLog(videoStarted, video.log);
-      if (video.log.status === "failed") {
-        console.warn("[cast-04] failed, continuing with captions only:", video.log.error);
+      try {
+        const { video_id } = await submitHeyGenVideo(
+          scenes,
+          topic,
+          castJobId,
+          avatarId,
+          voiceId,
+          webhookUrl,
+        );
+        // 비용은 webhook 완료 시 계산 (영상 길이 알면). 우선 0으로 기록.
+        const submittedLog: AgentLog = {
+          agent_id: "cast-04",
+          agent_name: "아바타 영상 합성",
+          status: "started", // UI에서 펄스 — 렌더링 중 표시
+          started_at: videoStarted.started_at,
+          completed_at: new Date().toISOString(),
+          duration_ms: 0,
+          tokens_in: 0,
+          tokens_out: 0,
+          cost_usd: 0,
+          error: `HeyGen 제출됨 (video_id: ${video_id.slice(0, 8)}…) — webhook 대기 중`,
+        };
+        await replaceLog(videoStarted, submittedLog);
+        // cast_jobs에 heygen_video_id 저장 (webhook이 이걸로 매칭)
+        await persistJobField({ heygen_video_id: video_id });
+        video = {
+          result: {
+            video_url: "",
+            video_path: null,
+            duration_sec: 0,
+            cost_usd: 0,
+            heygen_video_id: video_id,
+          },
+          log: submittedLog,
+        };
+      } catch (err) {
+        const failedLog: AgentLog = {
+          agent_id: "cast-04",
+          agent_name: "아바타 영상 합성",
+          status: "failed",
+          started_at: videoStarted.started_at,
+          completed_at: new Date().toISOString(),
+          duration_ms: 0,
+          tokens_in: 0,
+          tokens_out: 0,
+          cost_usd: 0,
+          error: err instanceof Error ? err.message : String(err),
+        };
+        await replaceLog(videoStarted, failedLog);
+        video = {
+          result: { video_url: "", video_path: null, duration_sec: 0, cost_usd: 0, heygen_video_id: "" },
+          log: failedLog,
+        };
+        console.warn("[cast-04] submit failed:", err);
       }
     }
 
@@ -279,14 +319,20 @@ export async function runCastFullChain(
       captions: captions.result,
     };
 
+    // 영상이 아직 렌더링 중 (heygen_video_id 있고 video_url 없음) → status='rendering'
+    // webhook이 완료되면 'completed'로 자동 갱신
+    const isRendering =
+      !!video.result.heygen_video_id && !video.result.video_url;
+    const finalStatus = isRendering ? "rendering" : "completed";
+
     await persistJobField({
-      status: "completed",
+      status: finalStatus,
       output,
       cost_usd: totalCost,
       duration_seconds: totalDurationMs / 1000,
       video_url: video.result.video_url || null,
       captions_url: captions.result.srt_url || null,
-      completed_at: new Date().toISOString(),
+      completed_at: isRendering ? null : new Date().toISOString(),
     });
 
     return {

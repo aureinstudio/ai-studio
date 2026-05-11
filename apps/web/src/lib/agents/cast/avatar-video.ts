@@ -8,6 +8,62 @@ const HEYGEN_API_BASE = "https://api.heygen.com";
 // 기본 fallback (호출 시 avatar_id 미제공 시). 동양인 검증 필요.
 const DEFAULT_AVATAR_ID = "Anna_public_3_20240108";
 
+/**
+ * HeyGen 영상 *제출만* — 폴링 안 함. video_id 즉시 반환.
+ * 완료 알림은 webhook을 통해 비동기 처리.
+ *
+ * Vercel function timeout 무관 — 호출 3~5초 내 종료.
+ */
+export async function submitHeyGenVideo(
+  scenes: VoiceScene[],
+  topic: string,
+  castJobId: string,
+  avatarId: string = DEFAULT_AVATAR_ID,
+  voiceId: string = "1bd001e7e50f421d891986aad5158bc8",
+  callbackUrl?: string,
+): Promise<{ video_id: string }> {
+  const apiKey = process.env.HEYGEN_API_KEY;
+  if (!apiKey) throw new Error("HEYGEN_API_KEY not configured");
+
+  const isTalkingPhoto = /^[a-f0-9]{32}$/i.test(avatarId);
+  const character = isTalkingPhoto
+    ? { type: "talking_photo" as const, talking_photo_id: avatarId }
+    : { type: "avatar" as const, avatar_id: avatarId, avatar_style: "normal" as const };
+
+  const video_inputs = scenes
+    .sort((a, b) => a.slide_number - b.slide_number)
+    .map((scene) => ({
+      character,
+      voice: scene.audio_url
+        ? ({ type: "audio" as const, audio_url: scene.audio_url })
+        : ({ type: "text" as const, input_text: scene.text ?? "", voice_id: voiceId }),
+    }));
+
+  const body: Record<string, unknown> = {
+    video_inputs,
+    dimension: { width: 1920, height: 1080 },
+    title: `KEG Cast · ${topic} · ${castJobId.slice(0, 8)}`,
+  };
+  if (callbackUrl) {
+    body.callback_url = callbackUrl;
+    body.callback_id = castJobId; // webhook에서 cast_job 매칭용
+  }
+
+  const res = await fetch(`${HEYGEN_API_BASE}/v2/video/generate`, {
+    method: "POST",
+    headers: { "X-Api-Key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`HeyGen generate ${res.status}: ${txt.slice(0, 500)}`);
+  }
+
+  const json = (await res.json()) as { data: { video_id: string } };
+  return { video_id: json.data.video_id };
+}
+
 // HeyGen 자체 TTS용 한국어 voice. 본부장이 HeyGen voices에서 동양인·한국어 voice 검증 권장.
 // /v2/voices 또는 대시보드에서 다른 voice_id로 교체 가능.
 const DEFAULT_KOREAN_VOICE_ID = "1bd001e7e50f421d891986aad5158bc8";
