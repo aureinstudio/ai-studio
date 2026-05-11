@@ -7,6 +7,20 @@ import type { AgentLog } from "../base";
 const HEYGEN_API_BASE = "https://api.heygen.com";
 // 기본 fallback (호출 시 avatar_id 미제공 시). 동양인 검증 필요.
 const DEFAULT_AVATAR_ID = "Anna_public_3_20240108";
+
+// HeyGen 자체 TTS용 한국어 voice. 본부장이 HeyGen voices에서 동양인·한국어 voice 검증 권장.
+// /v2/voices 또는 대시보드에서 다른 voice_id로 교체 가능.
+const DEFAULT_KOREAN_VOICE_ID = "1bd001e7e50f421d891986aad5158bc8";
+
+export type VoiceSource = "elevenlabs" | "heygen";
+
+export type VoiceScene = {
+  slide_number: number;
+  // ElevenLabs 모드 — 미리 생성된 음성 URL
+  audio_url?: string;
+  // HeyGen 모드 — 텍스트를 HeyGen TTS로 변환
+  text?: string;
+};
 const POLL_INTERVAL_MS = 15_000;
 const MAX_POLL_ATTEMPTS = 80; // 80 × 15s = 20분 최대
 
@@ -33,9 +47,10 @@ export async function runCastAvatarVideo(
   supabase: SupabaseClient,
   castJobId: string,
   userId: string,
-  audioFiles: AudioFile[],
+  scenes: VoiceScene[],
   topic: string,
   avatarId: string = DEFAULT_AVATAR_ID,
+  voiceId: string = DEFAULT_KOREAN_VOICE_ID,
   onProgressUpdate?: (status: string, elapsedSec: number) => Promise<void>,
 ): Promise<{ result: VideoResult; log: AgentLog }> {
   const startedAt = new Date().toISOString();
@@ -69,18 +84,18 @@ export async function runCastAvatarVideo(
 
   try {
     // 1. video_inputs — 슬라이드별 scene 빌드
-    const video_inputs = audioFiles
+    // ElevenLabs 모드: audio_url 사용 / HeyGen 모드: input_text + voice_id 사용
+    const video_inputs = scenes
       .sort((a, b) => a.slide_number - b.slide_number)
-      .map((af) => ({
+      .map((scene) => ({
         character: {
           type: "avatar" as const,
           avatar_id: avatarId,
           avatar_style: "normal" as const,
         },
-        voice: {
-          type: "audio" as const,
-          audio_url: af.audio_url,
-        },
+        voice: scene.audio_url
+          ? ({ type: "audio" as const, audio_url: scene.audio_url })
+          : ({ type: "text" as const, input_text: scene.text ?? "", voice_id: voiceId }),
       }));
 
     // 2. POST /v2/video/generate

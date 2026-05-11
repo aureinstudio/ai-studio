@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 type Gender = "male" | "female";
 type AgeGroup = "20s" | "30s" | "40s" | "50s";
 type AvatarSource = "preset" | "custom" | "upload" | "generate";
+type VoiceSource = "heygen" | "elevenlabs";
 
 const AGE_LABELS: Record<AgeGroup, string> = {
   "20s": "20대",
@@ -69,6 +70,8 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
   const [ageGroup, setAgeGroup] = useState<AgeGroup>("30s");
   const [avatarSource, setAvatarSource] = useState<AvatarSource>("preset");
   const [customAvatarId, setCustomAvatarId] = useState("");
+  // 음성 소스 (HeyGen 자체 TTS 기본 — 무료·시연 안정성)
+  const [voiceSource, setVoiceSource] = useState<VoiceSource>("heygen");
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const avatarSelection =
@@ -151,6 +154,7 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
           mode: "batch",
           approve_cost: true,
           avatar_selection: avatarSelection,
+          voice_source: voiceSource,
         }),
       });
       const data = await res.json();
@@ -362,6 +366,64 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
             <p className="mt-2 font-mono text-[10px] text-muted-foreground">
               현재 선택: {avatarSelection}
             </p>
+
+            {/* 음성 소스 토글 */}
+            <div className="mt-4 border-t border-border/40 pt-4">
+              <label className="mb-2 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                음성 소스
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={inProgress}
+                  onClick={() => setVoiceSource("heygen")}
+                  className={`flex flex-1 flex-col items-start rounded-md border px-3 py-2.5 text-left transition-colors ${
+                    voiceSource === "heygen"
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-transparent text-foreground hover:bg-card"
+                  } disabled:opacity-50`}
+                >
+                  <span className="flex w-full items-center justify-between gap-1.5">
+                    <span className="text-sm font-medium">HeyGen TTS</span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-widest ${
+                      voiceSource === "heygen" ? "bg-background/20 text-background" : "bg-emerald-500/10 text-emerald-400"
+                    }`}>
+                      기본
+                    </span>
+                  </span>
+                  <span className={`mt-1 text-[11px] ${voiceSource === "heygen" ? "text-background/70" : "text-muted-foreground"}`}>
+                    HeyGen 자체 TTS · 추가 비용 없음 · 시연 안정성↑
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled={inProgress}
+                  onClick={() => setVoiceSource("elevenlabs")}
+                  className={`flex flex-1 flex-col items-start rounded-md border px-3 py-2.5 text-left transition-colors ${
+                    voiceSource === "elevenlabs"
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-transparent text-foreground hover:bg-card"
+                  } disabled:opacity-50`}
+                >
+                  <span className="flex w-full items-center justify-between gap-1.5">
+                    <span className="text-sm font-medium">ElevenLabs</span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-widest ${
+                      voiceSource === "elevenlabs" ? "bg-background/20 text-background" : "bg-amber-500/10 text-amber-400"
+                    }`}>
+                      고품질
+                    </span>
+                  </span>
+                  <span className={`mt-1 text-[11px] ${voiceSource === "elevenlabs" ? "text-background/70" : "text-muted-foreground"}`}>
+                    고품질 한국어 · 추가 비용 ($0.30/1K자) · 별도 mp3
+                  </span>
+                </button>
+              </div>
+              {voiceSource === "elevenlabs" && (
+                <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                  ElevenLabs 무료 한도 10,000자/월. 한도 도달 시 자동으로 HeyGen TTS로 fallback.
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

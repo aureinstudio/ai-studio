@@ -17,6 +17,8 @@ const requestSchema = z.object({
   approve_cost: z.boolean(),
   // 아바타 선택 — preset_id (e.g., "f-30s") 또는 "custom:HEYGEN_AVATAR_ID"
   avatar_selection: z.string().default("f-30s"),
+  // 음성 소스 — heygen 자체 TTS (기본·저렴) 또는 elevenlabs (고품질)
+  voice_source: z.enum(["heygen", "elevenlabs"]).default("heygen"),
 });
 
 type SlideMeta = {
@@ -190,6 +192,7 @@ export async function POST(request: NextRequest) {
         isCertification,
         undefined, // model — Studio model 별도 (Cast는 기본 Sonnet)
         avatar.heygen_avatar_id,
+        parsed.data.voice_source,
       );
       console.log(`[cast/generate] Full chain completed for cast job ${castJob.id}`);
     } catch (err) {

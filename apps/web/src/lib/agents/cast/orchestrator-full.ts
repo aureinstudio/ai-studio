@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { SlideAnalyzer, type SlideInputMeta, type SlideAnalyzerOutput } from "./slide-analyzer";
 import { ScriptWriter, type ScriptWriterOutput } from "./script-writer";
 import { runCastTTS, type TTSResult } from "./tts";
-import { runCastAvatarVideo, type VideoResult } from "./avatar-video";
+import { runCastAvatarVideo, type VideoResult, type VoiceScene, type VoiceSource } from "./avatar-video";
 import { runCastCaptionsChapters, type CaptionsResult } from "./captions-chapters";
 import { Agent, AgentError, type AgentLog } from "../base";
 import { logCost } from "@/lib/cost-tracker";
@@ -47,6 +47,7 @@ export async function runCastFullChain(
   isCertification: boolean,
   model?: string,
   avatarId?: string,
+  voiceSource: VoiceSource = "heygen",
 ): Promise<CastFullResult> {
   const overallStart = Date.now();
   const agent_logs: AgentLog[] = [];
@@ -158,31 +159,61 @@ export async function runCastFullChain(
       is_certification: isCertification,
     });
 
-    // ─── #03 TTS (ElevenLabs) ───────────────────────
-    const ttsStarted = await pushStartedLog("cast-03", "TTS 음성 생성");
-    const tts = await runCastTTS(
-      supabase,
-      castJobId,
-      userId,
-      r02.output.scripts,
-      async (current, total, currentCost) => {
-        ttsStarted.tokens_out = current;
-        ttsStarted.cost_usd = currentCost;
-        await persistLogs();
-        await persistJobField({ cost_usd: currentCost });
-      },
-    );
-    await replaceLog(ttsStarted, tts.log);
-    if (tts.log.status === "failed") {
-      // TTS 실패는 fail-soft — 스크립트는 이미 생성됨, 자막은 글자 수 기반 추정으로 진행
-      // 영상(#04)은 음성 파일 필요하므로 스킵, 자막(#05)은 계속
-      console.warn("[cast-03] failed, continuing without audio (scripts + captions only):", tts.log.error);
+    // ─── #03 TTS (조건부) ────────────────────────────
+    // voiceSource='heygen': TTS 스킵, HeyGen이 자체 TTS로 영상 생성
+    // voiceSource='elevenlabs': ElevenLabs로 mp3 생성 후 HeyGen에 audio_url 전달
+    let tts: { result: TTSResult; log: AgentLog };
+    if (voiceSource === "heygen") {
+      const now = new Date().toISOString();
+      const skipLog: AgentLog = {
+        agent_id: "cast-03",
+        agent_name: "TTS 음성 생성",
+        status: "skipped",
+        started_at: now,
+        completed_at: now,
+        duration_ms: 0,
+        tokens_in: 0,
+        tokens_out: 0,
+        cost_usd: 0,
+        error: "HeyGen 자체 TTS 사용 (ElevenLabs 미사용)",
+      };
+      agent_logs.push(skipLog);
+      await persistLogs();
+      tts = {
+        result: { audio_files: [], total_cost_usd: 0, total_chars: 0 },
+        log: skipLog,
+      };
+    } else {
+      const ttsStarted = await pushStartedLog("cast-03", "TTS 음성 생성");
+      tts = await runCastTTS(
+        supabase,
+        castJobId,
+        userId,
+        r02.output.scripts,
+        async (current, total, currentCost) => {
+          ttsStarted.tokens_out = current;
+          ttsStarted.cost_usd = currentCost;
+          await persistLogs();
+          await persistJobField({ cost_usd: currentCost });
+        },
+      );
+      await replaceLog(ttsStarted, tts.log);
+      if (tts.log.status === "failed") {
+        console.warn("[cast-03] failed, continuing without audio (scripts + captions only):", tts.log.error);
+      }
     }
 
     // ─── #04 AvatarVideo (HeyGen) ───────────────────
-    // 음성 파일이 1개 이상 있을 때만 영상 생성 시도. TTS 전체 실패 시 자동 스킵.
+    // voiceSource='heygen': 스크립트 텍스트 → HeyGen TTS로 영상 생성 (audio_url 없음)
+    // voiceSource='elevenlabs': audio_files → audio_url로 영상 생성
     let video: { result: { video_url: string; video_path: string | null; duration_sec: number; cost_usd: number; heygen_video_id: string }; log: AgentLog };
-    if (tts.result.audio_files.length === 0) {
+
+    // scene 빌드 — 모드에 따라 다른 입력
+    const scenes: VoiceScene[] = voiceSource === "heygen"
+      ? r02.output.scripts.map((s) => ({ slide_number: s.slide_number, text: s.script_text }))
+      : tts.result.audio_files.map((a) => ({ slide_number: a.slide_number, audio_url: a.audio_url }));
+
+    if (scenes.length === 0) {
       const now = new Date().toISOString();
       const skipLog: AgentLog = {
         agent_id: "cast-04",
@@ -194,7 +225,7 @@ export async function runCastFullChain(
         tokens_in: 0,
         tokens_out: 0,
         cost_usd: 0,
-        error: "TTS 음성이 없어 영상 생성 스킵",
+        error: voiceSource === "heygen" ? "스크립트가 없어 영상 생성 스킵" : "TTS 음성이 없어 영상 생성 스킵",
       };
       agent_logs.push(skipLog);
       await persistLogs();
@@ -208,9 +239,10 @@ export async function runCastFullChain(
         supabase,
         castJobId,
         userId,
-        tts.result.audio_files,
+        scenes,
         topic,
         avatarId,
+        undefined, // voiceId — 기본 한국어 사용
         async (status, elapsedSec) => {
           videoStarted.error = `${status} (${elapsedSec}s 경과)`;
           await persistLogs();
