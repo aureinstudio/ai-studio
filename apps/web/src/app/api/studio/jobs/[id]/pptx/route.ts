@@ -18,14 +18,30 @@ export async function POST(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  // 본인 작업 또는 공개 샘플만 export 허용
-  const { data: job } = await supabase
+  // admin 클라이언트로 조회 (RLS 우회) — 수동 권한 검증으로 보안 유지
+  const admin = createAdminClient();
+  const { data: job, error: jobErr } = await admin
     .from("studio_jobs")
-    .select("id, user_id, topic, level, content, is_sample")
+    .select("id, user_id, topic, level, content, is_sample, deleted_at")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
-  if (!job) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (jobErr) {
+    return NextResponse.json(
+      { error: "query_failed", detail: jobErr.message },
+      { status: 500 },
+    );
+  }
+  if (!job) {
+    return NextResponse.json(
+      { error: "not_found", message: `Job ID ${id.slice(0, 8)}… 가 존재하지 않습니다.` },
+      { status: 404 },
+    );
+  }
+  if (job.deleted_at) {
+    return NextResponse.json({ error: "job_deleted" }, { status: 410 });
+  }
+  // 본인 작업 또는 공개 샘플만 export 허용
   if (job.user_id !== user.id && !job.is_sample) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
