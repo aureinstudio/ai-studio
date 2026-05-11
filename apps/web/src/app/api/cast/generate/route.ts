@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runCastFullChain } from "@/lib/agents/cast/orchestrator-full";
+import { parseAvatarSelection } from "@/lib/agents/cast/avatar-presets";
 import { CAST_DAILY_LIMIT_USD } from "@/lib/limits";
 import { calculateTtsCost } from "@/lib/external/elevenlabs";
 import { calculateVideoCost } from "@/lib/external/heygen";
@@ -14,6 +15,8 @@ const requestSchema = z.object({
   studio_job_id: z.string().uuid(),
   mode: z.enum(["batch", "realtime"]).default("batch"),
   approve_cost: z.boolean(),
+  // 아바타 선택 — preset_id (e.g., "f-30s") 또는 "custom:HEYGEN_AVATAR_ID"
+  avatar_selection: z.string().default("f-30s"),
 });
 
 type SlideMeta = {
@@ -177,6 +180,7 @@ export async function POST(request: NextRequest) {
   after(async () => {
     try {
       const admin = createAdminClient();
+      const avatar = parseAvatarSelection(parsed.data.avatar_selection);
       await runCastFullChain(
         admin,
         castJob.id,
@@ -184,6 +188,8 @@ export async function POST(request: NextRequest) {
         studioJob.topic,
         slides,
         isCertification,
+        undefined, // model — Studio model 별도 (Cast는 기본 Sonnet)
+        avatar.heygen_avatar_id,
       );
       console.log(`[cast/generate] Full chain completed for cast job ${castJob.id}`);
     } catch (err) {

@@ -2,7 +2,19 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+
+type Gender = "male" | "female";
+type AgeGroup = "20s" | "30s" | "40s" | "50s";
+type AvatarSource = "preset" | "custom" | "upload" | "generate";
+
+const AGE_LABELS: Record<AgeGroup, string> = {
+  "20s": "20대",
+  "30s": "30대",
+  "40s": "40대",
+  "50s": "50대",
+};
 
 type StudioJobOption = {
   id: string;
@@ -52,7 +64,17 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<CastJob | null>(null);
+  // 아바타 선택
+  const [gender, setGender] = useState<Gender>("female");
+  const [ageGroup, setAgeGroup] = useState<AgeGroup>("30s");
+  const [avatarSource, setAvatarSource] = useState<AvatarSource>("preset");
+  const [customAvatarId, setCustomAvatarId] = useState("");
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const avatarSelection =
+    avatarSource === "custom" && customAvatarId.trim()
+      ? `custom:${customAvatarId.trim()}`
+      : `${gender === "female" ? "f" : "m"}-${ageGroup}`;
 
   const selected = studioJobs.find((j) => j.id === selectedId);
 
@@ -128,6 +150,7 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
           studio_job_id: selectedId,
           mode: "batch",
           approve_cost: true,
+          avatar_selection: avatarSelection,
         }),
       });
       const data = await res.json();
@@ -202,12 +225,153 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
         </CardContent>
       </Card>
 
+      {/* 아바타 선택 */}
+      {selected && (
+        <Card className="border-border/60 bg-card/80">
+          <CardHeader>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              2 · 아바타 선택
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              정책: <span className="text-foreground">동양인 모델 고정</span> · 백인·흑인·라틴계 미허용
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 소스 토글 */}
+            <div className="flex gap-2">
+              {([
+                { id: "preset", label: "프리셋", enabled: true },
+                { id: "custom", label: "직접 ID 입력", enabled: true },
+                { id: "upload", label: "사진 업로드", enabled: false },
+                { id: "generate", label: "AI 생성", enabled: false },
+              ] as { id: AvatarSource; label: string; enabled: boolean }[]).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={!opt.enabled || inProgress}
+                  onClick={() => setAvatarSource(opt.id)}
+                  className={`flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${
+                    avatarSource === opt.id
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-transparent text-foreground hover:bg-card"
+                  } disabled:cursor-not-allowed disabled:opacity-30`}
+                >
+                  {opt.label}
+                  {!opt.enabled && (
+                    <span className="ml-1 text-[9px] text-muted-foreground">(Phase 2)</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* 프리셋 모드 — 성별 + 연령대 */}
+            {avatarSource === "preset" && (
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-2 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                    성별
+                  </label>
+                  <div className="flex gap-2">
+                    {(["female", "male"] as Gender[]).map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        disabled={inProgress}
+                        onClick={() => setGender(g)}
+                        className={`flex-1 rounded-md border px-4 py-2.5 text-sm font-medium transition-colors ${
+                          gender === g
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border bg-transparent text-foreground hover:bg-card"
+                        } disabled:opacity-50`}
+                      >
+                        {g === "female" ? "여성" : "남성"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                    연령대
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(["20s", "30s", "40s", "50s"] as AgeGroup[]).map((a) => (
+                      <button
+                        key={a}
+                        type="button"
+                        disabled={inProgress}
+                        onClick={() => setAgeGroup(a)}
+                        className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                          ageGroup === a
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border bg-transparent text-foreground hover:bg-card"
+                        } disabled:opacity-50`}
+                      >
+                        {AGE_LABELS[a]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
+                  ⚠️ 베타: 프리셋 아바타 ID는 본부장이 HeyGen 대시보드에서 동양인 모델 확인 후
+                  <code className="mx-1 rounded bg-foreground/10 px-1">avatar-presets.ts</code> 업데이트 필요.
+                  현재는 임시 fallback (실제 동양인 아닐 수 있음).
+                </p>
+              </div>
+            )}
+
+            {/* 직접 입력 모드 */}
+            {avatarSource === "custom" && (
+              <div className="space-y-2">
+                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  HeyGen Avatar ID
+                </label>
+                <Input
+                  value={customAvatarId}
+                  onChange={(e) => setCustomAvatarId(e.target.value)}
+                  disabled={inProgress}
+                  placeholder="예: Anna_public_3_20240108"
+                  className="font-mono text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  HeyGen 대시보드 (
+                  <a
+                    href="https://app.heygen.com/avatars"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-foreground underline"
+                  >
+                    app.heygen.com/avatars
+                  </a>
+                  ) 에서 *동양인 모델*만 선택 후 avatar_id 복사.
+                </p>
+              </div>
+            )}
+
+            {/* 업로드/생성 — Phase 2 안내 */}
+            {(avatarSource === "upload" || avatarSource === "generate") && (
+              <p className="rounded-md border border-border/40 bg-background/40 p-3 text-xs text-muted-foreground">
+                {avatarSource === "upload"
+                  ? "사진 업로드로 Talking Photo 생성"
+                  : "AI로 새 아바타 생성"}
+                은 Phase 2에서 추가됩니다. 지금은 프리셋 또는 HeyGen Avatar ID 직접 입력을 사용해주세요.
+              </p>
+            )}
+
+            <p className="mt-2 font-mono text-[10px] text-muted-foreground">
+              현재 선택: {avatarSelection}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 비용 추정 */}
       {selected && (
         <Card className="border-border/60 bg-card/80">
           <CardHeader>
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              2 · 비용 추정
+              3 · 비용 추정
             </p>
           </CardHeader>
           <CardContent>

@@ -5,9 +5,7 @@ import type { AudioFile } from "./tts";
 import type { AgentLog } from "../base";
 
 const HEYGEN_API_BASE = "https://api.heygen.com";
-// HeyGen 공개 avatar. 사용자가 자체 avatar로 교체 가능.
-// 목록: https://docs.heygen.com/reference/list-avatars
-// Anna_public_3는 2024년 도입된 표준 공개 avatar — API 무료 등급
+// 기본 fallback (호출 시 avatar_id 미제공 시). 동양인 검증 필요.
 const DEFAULT_AVATAR_ID = "Anna_public_3_20240108";
 const POLL_INTERVAL_MS = 15_000;
 const MAX_POLL_ATTEMPTS = 80; // 80 × 15s = 20분 최대
@@ -37,6 +35,7 @@ export async function runCastAvatarVideo(
   userId: string,
   audioFiles: AudioFile[],
   topic: string,
+  avatarId: string = DEFAULT_AVATAR_ID,
   onProgressUpdate?: (status: string, elapsedSec: number) => Promise<void>,
 ): Promise<{ result: VideoResult; log: AgentLog }> {
   const startedAt = new Date().toISOString();
@@ -75,7 +74,7 @@ export async function runCastAvatarVideo(
       .map((af) => ({
         character: {
           type: "avatar" as const,
-          avatar_id: DEFAULT_AVATAR_ID,
+          avatar_id: avatarId,
           avatar_style: "normal" as const,
         },
         voice: {

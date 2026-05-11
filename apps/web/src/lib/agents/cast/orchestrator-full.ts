@@ -46,6 +46,7 @@ export async function runCastFullChain(
   slides: SlideInputMeta[],
   isCertification: boolean,
   model?: string,
+  avatarId?: string,
 ): Promise<CastFullResult> {
   const overallStart = Date.now();
   const agent_logs: AgentLog[] = [];
@@ -209,6 +210,7 @@ export async function runCastFullChain(
         userId,
         tts.result.audio_files,
         topic,
+        avatarId,
         async (status, elapsedSec) => {
           videoStarted.error = `${status} (${elapsedSec}s 경과)`;
           await persistLogs();

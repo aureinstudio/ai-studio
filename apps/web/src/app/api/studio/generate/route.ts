@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runDynamicChain } from "@/lib/agents/orchestrator-dynamic";
+// Note: avatar 선택은 Cast 측만 — Studio는 변경 없음
 import { DAILY_USD_LIMIT } from "@/lib/limits";
 import { ALLOWED_MODELS } from "@/lib/anthropic/client";
 
