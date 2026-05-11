@@ -133,11 +133,16 @@ async function tryGemini(
   return null;
 }
 
+// Nano Banana (Gemini 3.x 이미지 생성) 우선 — 본부장 paid tier에서 사용 가능
+// 본부장이 사용 가능한 모델만 시도 (다른 fallback 제거 — 404 누적 회피)
 const MODELS_TO_TRY: { kind: "imagen" | "gemini"; name: string; cost: number }[] = [
+  // Nano Banana 2 — Pro-level + Flash-speed, 가장 저렴 (~$0.07/이미지)
+  { kind: "gemini", name: "gemini-3.1-flash-image-preview", cost: 0.0672 },
+  // Nano Banana Pro — SOTA 최고 품질 (~$0.13/이미지)
+  { kind: "gemini", name: "gemini-3-pro-image-preview", cost: 0.134 },
+  // Imagen 3 fallback (구버전 보존)
   { kind: "imagen", name: "imagen-3.0-fast-generate-001", cost: 0.02 },
   { kind: "imagen", name: "imagen-3.0-generate-001", cost: 0.04 },
-  { kind: "gemini", name: "gemini-2.5-flash-image-preview", cost: 0.04 },
-  { kind: "gemini", name: "gemini-2.0-flash-exp-image-generation", cost: 0.04 },
 ];
 
 export async function generateAvatarImage(
