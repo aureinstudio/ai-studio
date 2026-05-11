@@ -182,7 +182,35 @@ export async function POST(request: NextRequest) {
   after(async () => {
     try {
       const admin = createAdminClient();
-      const avatar = parseAvatarSelection(parsed.data.avatar_selection);
+      // avatar_selection 해석:
+      // - "user:UUID" → user_avatars 테이블 조회 → talking_photo_id 사용
+      // - "custom:..." → 사용자가 입력한 HeyGen ID 그대로
+      // - "f-30s" 등 → preset
+      let avatarHeygenId: string;
+      let avatarVoiceId: string;
+      if (parsed.data.avatar_selection.startsWith("user:")) {
+        const userAvatarId = parsed.data.avatar_selection.slice("user:".length);
+        const { data: ua } = await admin
+          .from("user_avatars")
+          .select("heygen_talking_photo_id, gender")
+          .eq("id", userAvatarId)
+          .eq("user_id", user.id)
+          .single();
+        if (!ua) {
+          console.error(`[cast/generate] user_avatar ${userAvatarId} not found`);
+          throw new Error(`user_avatar ${userAvatarId} not found`);
+        }
+        avatarHeygenId = ua.heygen_talking_photo_id;
+        avatarVoiceId =
+          ua.gender === "male"
+            ? "9d81087c3f9a45df8c22ab91cf46ca89"
+            : "bef4755ca1f442359c2fe6420690c8f7";
+      } else {
+        const avatar = parseAvatarSelection(parsed.data.avatar_selection);
+        avatarHeygenId = avatar.heygen_avatar_id;
+        avatarVoiceId = avatar.heygen_voice_id;
+      }
+
       await runCastFullChain(
         admin,
         castJob.id,
@@ -190,10 +218,10 @@ export async function POST(request: NextRequest) {
         studioJob.topic,
         slides,
         isCertification,
-        undefined, // model — Studio model 별도 (Cast는 기본 Sonnet)
-        avatar.heygen_avatar_id,
+        undefined,
+        avatarHeygenId,
         parsed.data.voice_source,
-        avatar.heygen_voice_id, // 성별에 매칭된 한국어 voice (HeyGen TTS 시 사용)
+        avatarVoiceId,
       );
       console.log(`[cast/generate] Full chain completed for cast job ${castJob.id}`);
     } catch (err) {

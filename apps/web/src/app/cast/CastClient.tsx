@@ -7,8 +7,17 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 type Gender = "male" | "female";
 type AgeGroup = "20s" | "30s" | "40s" | "50s";
-type AvatarSource = "preset" | "custom" | "upload" | "generate";
+type AvatarSource = "preset" | "custom" | "myAvatars" | "generate";
 type VoiceSource = "heygen" | "elevenlabs";
+
+type UserAvatar = {
+  id: string;
+  talking_photo_id: string;
+  label: string;
+  gender: "male" | "female" | null;
+  source_image_url: string | null;
+  created_at: string;
+};
 
 const AGE_LABELS: Record<AgeGroup, string> = {
   "20s": "20대",
@@ -72,12 +81,72 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
   const [customAvatarId, setCustomAvatarId] = useState("");
   // 음성 소스 (HeyGen 자체 TTS 기본 — 무료·시연 안정성)
   const [voiceSource, setVoiceSource] = useState<VoiceSource>("heygen");
+  // 사용자 avatar (업로드·AI 생성 결과)
+  const [userAvatars, setUserAvatars] = useState<UserAvatar[]>([]);
+  const [selectedUserAvatarId, setSelectedUserAvatarId] = useState<string | null>(null);
+  // AI 생성
+  const [genLabel, setGenLabel] = useState("");
+  const [genExtra, setGenExtra] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const avatarSelection =
-    avatarSource === "custom" && customAvatarId.trim()
-      ? `custom:${customAvatarId.trim()}`
-      : `${gender === "female" ? "f" : "m"}-${ageGroup}`;
+  const avatarSelection = (() => {
+    if (avatarSource === "myAvatars" && selectedUserAvatarId) {
+      return `user:${selectedUserAvatarId}`;
+    }
+    if (avatarSource === "generate" && selectedUserAvatarId) {
+      return `user:${selectedUserAvatarId}`;
+    }
+    if (avatarSource === "custom" && customAvatarId.trim()) {
+      return `custom:${customAvatarId.trim()}`;
+    }
+    return `${gender === "female" ? "f" : "m"}-${ageGroup}`;
+  })();
+
+  // 사용자 avatar 목록 로드
+  useEffect(() => {
+    fetch("/api/cast/avatars", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.avatars) setUserAvatars(data.avatars);
+      })
+      .catch(() => {
+        // ignore
+      });
+  }, []);
+
+  async function handleGenerateAvatar() {
+    if (!genLabel.trim()) {
+      setGenError("라벨을 입력해주세요 (예: '강사 김철수')");
+      return;
+    }
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch("/api/cast/avatars/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gender,
+          age_group: ageGroup,
+          label: genLabel.trim(),
+          extra_description: genExtra.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail ?? data?.error ?? `HTTP ${res.status}`);
+      // 목록 갱신 + 자동 선택
+      setUserAvatars((prev) => [data.avatar, ...prev]);
+      setSelectedUserAvatarId(data.avatar.id);
+      setGenLabel("");
+      setGenExtra("");
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : "생성 실패");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   const selected = studioJobs.find((j) => j.id === selectedId);
 
@@ -244,10 +313,10 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
             {/* 소스 토글 */}
             <div className="flex gap-2">
               {([
+                { id: "generate", label: "AI 생성", enabled: true },
+                { id: "myAvatars", label: `내 avatar (${userAvatars.length})`, enabled: true },
                 { id: "preset", label: "프리셋", enabled: true },
                 { id: "custom", label: "직접 ID 입력", enabled: true },
-                { id: "upload", label: "사진 업로드", enabled: false },
-                { id: "generate", label: "AI 생성", enabled: false },
               ] as { id: AvatarSource; label: string; enabled: boolean }[]).map((opt) => (
                 <button
                   key={opt.id}
@@ -353,14 +422,147 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
               </div>
             )}
 
-            {/* 업로드/생성 — Phase 2 안내 */}
-            {(avatarSource === "upload" || avatarSource === "generate") && (
-              <p className="rounded-md border border-border/40 bg-background/40 p-3 text-xs text-muted-foreground">
-                {avatarSource === "upload"
-                  ? "사진 업로드로 Talking Photo 생성"
-                  : "AI로 새 아바타 생성"}
-                은 Phase 2에서 추가됩니다. 지금은 프리셋 또는 HeyGen Avatar ID 직접 입력을 사용해주세요.
-              </p>
+            {/* AI 생성 모드 */}
+            {avatarSource === "generate" && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                      성별
+                    </label>
+                    <div className="flex gap-1">
+                      {(["female", "male"] as Gender[]).map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          disabled={generating || inProgress}
+                          onClick={() => setGender(g)}
+                          className={`flex-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            gender === g
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border bg-transparent text-foreground hover:bg-card"
+                          } disabled:opacity-50`}
+                        >
+                          {g === "female" ? "여성" : "남성"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                      연령대
+                    </label>
+                    <div className="grid grid-cols-4 gap-1">
+                      {(["20s", "30s", "40s", "50s"] as AgeGroup[]).map((a) => (
+                        <button
+                          key={a}
+                          type="button"
+                          disabled={generating || inProgress}
+                          onClick={() => setAgeGroup(a)}
+                          className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
+                            ageGroup === a
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border bg-transparent text-foreground hover:bg-card"
+                          } disabled:opacity-50`}
+                        >
+                          {AGE_LABELS[a]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                    라벨 (필수)
+                  </label>
+                  <Input
+                    value={genLabel}
+                    onChange={(e) => setGenLabel(e.target.value)}
+                    disabled={generating || inProgress}
+                    maxLength={60}
+                    placeholder="예: 조리과 강사"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                    추가 묘사 (선택)
+                  </label>
+                  <Input
+                    value={genExtra}
+                    onChange={(e) => setGenExtra(e.target.value)}
+                    disabled={generating || inProgress}
+                    maxLength={200}
+                    placeholder="예: 안경 착용, 단발 헤어, 친근한 표정"
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleGenerateAvatar}
+                  disabled={generating || inProgress || !genLabel.trim()}
+                  className="w-full bg-foreground text-background hover:bg-foreground/90"
+                >
+                  {generating ? "생성 중... (약 30초)" : `AI로 생성하기 (~$0.04)`}
+                </Button>
+
+                {genError && (
+                  <p className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-300">
+                    {genError}
+                  </p>
+                )}
+
+                <p className="text-[10px] text-muted-foreground">
+                  Gemini Imagen 3 → HeyGen Talking Photo 자동 업로드. 생성된 avatar는 "내 avatar"에 저장됩니다.
+                </p>
+              </div>
+            )}
+
+            {/* 내 avatar 목록 */}
+            {avatarSource === "myAvatars" && (
+              <div className="space-y-2">
+                {userAvatars.length === 0 ? (
+                  <p className="rounded-md border border-border/40 bg-background/40 p-3 text-xs text-muted-foreground">
+                    아직 생성·업로드한 avatar가 없습니다. "AI 생성" 탭에서 만드세요.
+                  </p>
+                ) : (
+                  userAvatars.map((a) => (
+                    <label
+                      key={a.id}
+                      className={`flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 transition-colors ${
+                        selectedUserAvatarId === a.id
+                          ? "border-foreground bg-foreground/5"
+                          : "border-border bg-transparent hover:bg-card"
+                      } ${inProgress ? "pointer-events-none opacity-50" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="user_avatar"
+                        checked={selectedUserAvatarId === a.id}
+                        onChange={() => setSelectedUserAvatarId(a.id)}
+                        disabled={inProgress}
+                        className="h-4 w-4 accent-foreground"
+                      />
+                      {a.source_image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={a.source_image_url}
+                          alt={a.label}
+                          className="h-12 w-12 rounded-md border border-border object-cover"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{a.label}</p>
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          {a.gender === "female" ? "여성" : a.gender === "male" ? "남성" : "—"} ·{" "}
+                          {a.talking_photo_id.slice(0, 12)}…
+                        </p>
+                      </div>
+                    </label>
+                  ))
+                )}
+              </div>
             )}
 
             <p className="mt-2 font-mono text-[10px] text-muted-foreground">
