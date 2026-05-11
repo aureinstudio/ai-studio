@@ -32,7 +32,17 @@ type CastJob = {
   cost_usd: number | null;
   duration_seconds: number | null;
   error_message: string | null;
+  video_url: string | null;
+  captions_url: string | null;
 };
+
+const CAST_AGENTS = [
+  { id: "cast-01", name: "슬라이드 분석", team: "T1" },
+  { id: "cast-02", name: "스크립트 생성", team: "T1" },
+  { id: "cast-03", name: "TTS 음성 생성", team: "T2" },
+  { id: "cast-04", name: "아바타 영상 합성", team: "T2" },
+  { id: "cast-05", name: "자막·챕터 생성", team: "T2" },
+];
 
 export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -130,6 +140,8 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
         cost_usd: null,
         duration_seconds: null,
         error_message: null,
+        video_url: null,
+        captions_url: null,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -293,14 +305,13 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
             </div>
 
             <ol className="space-y-3">
-              {[
-                { id: "cast-01", name: "슬라이드 분석" },
-                { id: "cast-02", name: "스크립트 생성" },
-              ].map((agent, i) => {
+              {CAST_AGENTS.map((agent, i) => {
                 const log = job.agent_logs.find((l) => l.agent_id === agent.id);
                 const done = log?.status === "completed";
                 const failed = log?.status === "failed";
                 const started = log?.status === "started";
+                // 진행 메시지 (cast-03/04에서 사용) — error 필드를 임시 상태 표시용으로 활용
+                const progressMsg = started ? log?.error : undefined;
                 return (
                   <li key={agent.id} className="flex items-start gap-3 text-sm">
                     <span
@@ -317,18 +328,31 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
                       {done ? "✓" : failed ? "✗" : i + 1}
                     </span>
                     <div className="flex-1">
-                      <p className={`font-medium ${done || started ? "text-foreground" : "text-muted-foreground"}`}>
-                        #{agent.id} {agent.name}
+                      <p className={`flex items-center gap-2 font-medium ${done || started ? "text-foreground" : "text-muted-foreground"}`}>
+                        <span className="font-mono text-xs text-muted-foreground">#{agent.id}</span>
+                        <span>{agent.name}</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-widest ${
+                          agent.team === "T1" ? "bg-blue-500/10 text-blue-400" : "bg-violet-500/10 text-violet-400"
+                        }`}>
+                          {agent.team}
+                        </span>
                       </p>
                       {started && (
                         <p className="mt-1 font-mono text-xs text-foreground/70">
-                          ⏳ 생성 중… {log!.tokens_out > 0 ? `~${log!.tokens_out.toLocaleString()} tokens` : "응답 대기"}
+                          {progressMsg
+                            ? `⏳ ${progressMsg}`
+                            : agent.id === "cast-03"
+                              ? `⏳ 슬라이드 ${log!.tokens_out}개 음성 생성 중…`
+                              : `⏳ 생성 중… ${log!.tokens_out > 0 ? `~${log!.tokens_out.toLocaleString()} tokens` : "응답 대기"}`}
                         </p>
                       )}
                       {done && log?.duration_ms != null && (
                         <p className="mt-1 font-mono text-xs text-muted-foreground/60">
                           {(log.duration_ms / 1000).toFixed(1)}s · ${log.cost_usd.toFixed(4)}
                         </p>
+                      )}
+                      {failed && log?.error && (
+                        <p className="mt-1 text-xs text-red-300">{log.error}</p>
                       )}
                     </div>
                   </li>
@@ -345,7 +369,96 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
         </Card>
       )}
 
-      {/* 결과 */}
+      {/* 결과: 영상 플레이어 + 다운로드 (TEAM 2 완료 시) */}
+      {job?.status === "completed" && (job.video_url || job.captions_url || job.output?.tts) && (
+        <Card className="border-border/60 bg-card/80">
+          <CardHeader>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              생성 완료 — 영상·음성·자막
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              총 비용 ${job.cost_usd?.toFixed(2) ?? "-"} · 처리 시간 {job.duration_seconds ? `${(job.duration_seconds / 60).toFixed(1)}분` : "-"}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {job.video_url && (
+              <div>
+                <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  최종 영상
+                </p>
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <video
+                  src={job.video_url}
+                  controls
+                  className="w-full rounded-md border border-border bg-black"
+                  poster=""
+                />
+                <a
+                  href={job.video_url}
+                  download
+                  className="mt-2 inline-block text-xs text-foreground underline"
+                >
+                  ⬇ MP4 다운로드
+                </a>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {job.captions_url && (
+                <a
+                  href={job.captions_url}
+                  download
+                  className="rounded-md border border-border bg-background/40 px-3 py-2 text-center text-xs text-foreground hover:bg-card"
+                >
+                  ⬇ SRT 자막
+                </a>
+              )}
+              {job.output?.captions?.chapters_url && (
+                <a
+                  href={job.output.captions.chapters_url}
+                  download
+                  className="rounded-md border border-border bg-background/40 px-3 py-2 text-center text-xs text-foreground hover:bg-card"
+                >
+                  ⬇ 챕터 JSON
+                </a>
+              )}
+              {job.output?.tts?.audio_files?.length > 0 && (
+                <details className="rounded-md border border-border bg-background/40 px-3 py-2 text-xs">
+                  <summary className="cursor-pointer text-foreground">
+                    🎵 슬라이드별 음성 ({job.output.tts.audio_files.length}개)
+                  </summary>
+                  <ul className="mt-2 space-y-1">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {job.output.tts.audio_files.map((af: any) => (
+                      <li key={af.slide_number}>
+                        <a
+                          href={af.audio_url}
+                          download
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          슬라이드 {String(af.slide_number).padStart(2, "0")} — mp3
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+
+            {/* 비용 분해 */}
+            {job.output?.tts && (
+              <div className="rounded-md border border-border/40 bg-background/30 p-3 font-mono text-xs">
+                <p className="mb-1 text-muted-foreground">비용 분해</p>
+                <Row label="LLM (cast)" value={`$${((job.cost_usd ?? 0) - (job.output.tts.total_cost_usd ?? 0) - (job.output.video?.cost_usd ?? 0)).toFixed(4)}`} active />
+                <Row label="TTS (elevenlabs)" value={`$${job.output.tts.total_cost_usd?.toFixed(4) ?? "0"}`} active />
+                <Row label="Video (heygen)" value={`$${job.output.video?.cost_usd?.toFixed(4) ?? "0"}`} active />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 스크립트 미리보기 */}
       {job?.status === "completed" && job.output?.scripts && (
         <Card className="border-border/60 bg-card/80">
           <CardHeader>

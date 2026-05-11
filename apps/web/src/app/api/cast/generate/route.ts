@@ -2,7 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { runCastTeam1 } from "@/lib/agents/cast/orchestrator-team1";
+import { runCastFullChain } from "@/lib/agents/cast/orchestrator-full";
 import { CAST_DAILY_LIMIT_USD } from "@/lib/limits";
 import { calculateTtsCost } from "@/lib/external/elevenlabs";
 import { calculateVideoCost } from "@/lib/external/heygen";
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
   after(async () => {
     try {
       const admin = createAdminClient();
-      await runCastTeam1(
+      await runCastFullChain(
         admin,
         castJob.id,
         user.id,
@@ -185,9 +185,9 @@ export async function POST(request: NextRequest) {
         slides,
         isCertification,
       );
-      console.log(`[cast/generate] TEAM 1 completed for cast job ${castJob.id}`);
+      console.log(`[cast/generate] Full chain completed for cast job ${castJob.id}`);
     } catch (err) {
-      console.error(`[cast/generate] TEAM 1 failed for cast job ${castJob.id}:`, err);
+      console.error(`[cast/generate] Full chain failed for cast job ${castJob.id}:`, err);
     }
   });
 

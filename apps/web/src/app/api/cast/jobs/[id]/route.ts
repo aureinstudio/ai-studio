@@ -17,7 +17,7 @@ export async function GET(
   const { data, error } = await supabase
     .from("cast_jobs")
     .select(
-      "id, status, output, agent_logs, cost_usd, duration_seconds, error_message, created_at, completed_at",
+      "id, status, output, agent_logs, cost_usd, duration_seconds, error_message, video_url, captions_url, created_at, completed_at",
     )
     .eq("id", id)
     .eq("user_id", user.id)
