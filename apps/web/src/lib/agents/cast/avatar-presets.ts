@@ -28,11 +28,11 @@ export type AvatarPreset = {
   verified: boolean;
 };
 
-// 현재 검증된 fallback (HeyGen 무료 공개 avatar).
-// ⚠️ 이 avatar들이 실제 동양인인지 본부장이 시연 후 검증 필요.
-// 동양인이 아니면 HeyGen 대시보드에서 동양인 avatar 찾아 교체.
+// 본부장이 HeyGen 대시보드에서 검증한 동양인 avatar.
+// 여성은 아직 미검증 — 시연 후 교체 권장.
 const PLACEHOLDER_ASIAN_FEMALE = "Anna_public_3_20240108";
-const PLACEHOLDER_ASIAN_MALE = "Pedro_Chair_Sitting_public";
+// 본부장 직접 확인 (2026-05-11): 동양인 남성 ✓
+const VERIFIED_ASIAN_MALE = "be2f01d03e3440b096f58f4845b5a06a";
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
   // 여성
@@ -72,19 +72,19 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
     description: "권위 있는 톤. 전문가 인터뷰·심화 과정에 적합.",
     verified: false,
   },
-  // 남성
+  // 남성 (본부장 검증 ✓ — 동일 ID, 본부장이 추가 연령대 ID 제공하면 분기)
   {
     preset_id: "m-20s",
-    heygen_avatar_id: PLACEHOLDER_ASIAN_MALE,
+    heygen_avatar_id: VERIFIED_ASIAN_MALE,
     gender: "male",
     age_group: "20s",
     label: "남성 · 20대",
     description: "신입 강사·튜터 톤. 친근하고 명료한 음성에 어울림.",
-    verified: false,
+    verified: true,
   },
   {
     preset_id: "m-30s",
-    heygen_avatar_id: PLACEHOLDER_ASIAN_MALE,
+    heygen_avatar_id: VERIFIED_ASIAN_MALE,
     gender: "male",
     age_group: "30s",
     label: "남성 · 30대",
@@ -93,21 +93,21 @@ export const AVATAR_PRESETS: AvatarPreset[] = [
   },
   {
     preset_id: "m-40s",
-    heygen_avatar_id: PLACEHOLDER_ASIAN_MALE,
+    heygen_avatar_id: VERIFIED_ASIAN_MALE,
     gender: "male",
     age_group: "40s",
     label: "남성 · 40대",
     description: "시니어 강사 톤. 심화 과정·이론 강의에 적합.",
-    verified: false,
+    verified: true,
   },
   {
     preset_id: "m-50s",
-    heygen_avatar_id: PLACEHOLDER_ASIAN_MALE,
+    heygen_avatar_id: VERIFIED_ASIAN_MALE,
     gender: "male",
     age_group: "50s",
     label: "남성 · 50대",
     description: "권위 있는 톤. 전문가 인터뷰·심화 과정에 적합.",
-    verified: false,
+    verified: true,
   },
 ];
 
