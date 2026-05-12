@@ -4,6 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
+function getInitialQuestion(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("q")?.slice(0, 500) ?? "";
+}
+
 type AvatarOption = {
   id: string;
   label: string;
@@ -26,7 +32,18 @@ type CastJob = {
 export function AskClient({ avatars }: { avatars: AvatarOption[] }) {
   const [question, setQuestion] = useState("");
   const [courseContext, setCourseContext] = useState("");
+  // URL ?q= 으로 들어온 경우 (Tutor → Cast Mode B 핸드오프)
   const [generateVideo, setGenerateVideo] = useState(false);
+
+  // mount 후 ?q= 반영 (SSR hydration 안전)
+  useEffect(() => {
+    const initial = getInitialQuestion();
+    if (initial) {
+      setQuestion(initial);
+      setGenerateVideo(true); // Tutor 핸드오프는 영상이 목적
+    }
+  }, []);
+
   const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(
     avatars[0]?.id ?? null,
   );

@@ -393,6 +393,18 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         )}
       </div>
 
+      {/* 영상으로 받기 (Tutor → Cast Mode B 트리거) */}
+      {!isRejected && message.content.length > 50 && (
+        <a
+          href={`/cast/ask?q=${encodeURIComponent(message.content.slice(0, 400))}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-2 inline-flex items-center gap-1 rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[10px] text-violet-300 hover:bg-violet-500/20"
+        >
+          🎬 이 답변을 영상으로 받기 (~$0.50, 3분)
+        </a>
+      )}
+
       {/* 출처 */}
       {message.sources.length > 0 && !isRejected && (
         <details className="ml-2 max-w-[85%] text-[11px]">
