@@ -8,5 +8,31 @@
       "path": "/api/cron/cost-monitor",
       "schedule": "0 15 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/tutor/ask/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "src/app/api/tutor/safety-check/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "src/app/api/tutor/evaluate/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "src/app/api/studio/generate/route.ts": {
+      "memory": 1769,
+      "maxDuration": 800
+    },
+    "src/app/api/cast/generate/route.ts": {
+      "memory": 1769,
+      "maxDuration": 800
+    },
+    "src/app/api/cast/webhooks/heygen/route.ts": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  }
 }

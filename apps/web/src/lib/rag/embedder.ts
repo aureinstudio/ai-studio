@@ -10,6 +10,8 @@
  *   - SEMANTIC_SIMILARITY: FAQ 캐싱·유사도 비교
  */
 
+import { cached, hashKey } from "@/lib/cache";
+
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const MODEL = "gemini-embedding-001";
 
@@ -25,9 +27,9 @@ export type EmbeddingResult = {
   model: string;
 };
 
-export async function createEmbedding(
+async function createEmbeddingUncached(
   text: string,
-  taskType: EmbeddingTaskType = "RETRIEVAL_DOCUMENT",
+  taskType: EmbeddingTaskType,
 ): Promise<EmbeddingResult> {
   const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
   if (!apiKey) {
@@ -59,10 +61,29 @@ export async function createEmbedding(
     throw new Error("Gemini embedding response missing values");
   }
 
-  // 비용: $0.000025 / 1K chars (대략, 한국어 평균)
   const cost = Math.max(0.00001, (text.length / 1000) * 0.000025);
-
   return { vector, cost_usd: cost, model: MODEL };
+}
+
+/**
+ * QUERY 임베딩은 자주 반복(같은 질문) → 캐시. DOCUMENT는 1회성 → 캐시 안 함.
+ * 캐시 hit 시 cost_usd=0 (API 호출 안 함 → 실제 비용 0).
+ */
+export async function createEmbedding(
+  text: string,
+  taskType: EmbeddingTaskType = "RETRIEVAL_DOCUMENT",
+): Promise<EmbeddingResult> {
+  // DOCUMENT 임베딩(인덱싱)은 캐시 X — 1회만 수행됨
+  if (taskType === "RETRIEVAL_DOCUMENT") {
+    return createEmbeddingUncached(text, taskType);
+  }
+  const key = `embed:${taskType}:${hashKey([text])}`;
+  const cachedResult = await cached(
+    key,
+    () => createEmbeddingUncached(text, taskType),
+    { l1TtlSec: 120, l2TtlSec: 86400 }, // QUERY 임베딩은 24h L2 — 같은 질문 재방문 시 0비용
+  );
+  return cachedResult;
 }
 
 /**
