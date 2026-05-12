@@ -19,6 +19,12 @@ export function Footer() {
           <Link href="/legal/data-rights" className="hover:text-foreground">
             데이터 권리
           </Link>
+          <Link href="/support" className="hover:text-foreground">
+            문의하기
+          </Link>
+          <Link href="/beta" className="hover:text-foreground">
+            베타 모집
+          </Link>
         </div>
 
         {/* 사업자 정보 */}

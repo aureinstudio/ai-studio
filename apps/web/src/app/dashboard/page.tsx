@@ -10,7 +10,7 @@ type Profile = {
   id: string;
   email: string;
   name: string | null;
-  role: "user" | "admin";
+  role: "user" | "admin" | "sme" | "instructor";
 };
 
 type RecentJob = {
@@ -268,23 +268,81 @@ export default async function DashboardPage() {
           </p>
         </Link>
 
-        {profile.role === "admin" && (
-          <div className="rounded-lg border border-border/60 bg-card/80 p-6 opacity-70">
-            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Admin
-            </p>
-            <h3 className="text-xl font-semibold tracking-tight text-foreground">
-              관리자 패널
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              사용자 관리·KPI 모니터링·전사 비용.
-            </p>
-            <p className="mt-4 text-xs font-medium uppercase tracking-widest text-muted-foreground/50">
-              곧 출시
-            </p>
-          </div>
-        )}
+        <Link
+          href="/cast"
+          className="group rounded-lg border border-border/60 bg-card/80 p-6 transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-2xl hover:shadow-foreground/5"
+        >
+          <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            Cast
+          </p>
+          <h3 className="text-xl font-semibold tracking-tight text-foreground">
+            영상 강의 만들기
+          </h3>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Studio 콘텐츠 → 아바타 + PPT 영상으로 변환.
+          </p>
+          <p className="mt-4 text-xs font-medium uppercase tracking-widest text-foreground">
+            시작 →
+          </p>
+        </Link>
       </div>
+
+      {/* 학습 + 케어 도구 */}
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Link
+          href="/tutor"
+          className="rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:bg-card hover:border-foreground/30"
+        >
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">AI Tutor</p>
+          <p className="mt-1 text-sm font-semibold">질문하기 →</p>
+          <p className="mt-1 text-xs text-muted-foreground">24/7 1:1 답변</p>
+        </Link>
+        <Link
+          href="/dashboard/self-check"
+          className="rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:bg-card hover:border-foreground/30"
+        >
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">자가 진단</p>
+          <p className="mt-1 text-sm font-semibold">주 1회 →</p>
+          <p className="mt-1 text-xs text-muted-foreground">학습 만족도</p>
+        </Link>
+        <Link
+          href="/dashboard/nps"
+          className="rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:bg-card hover:border-foreground/30"
+        >
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">추천 설문</p>
+          <p className="mt-1 text-sm font-semibold">2분 응답 →</p>
+          <p className="mt-1 text-xs text-muted-foreground">NPS 0~10</p>
+        </Link>
+        <Link
+          href="/support"
+          className="rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:bg-card hover:border-foreground/30"
+        >
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">문의</p>
+          <p className="mt-1 text-sm font-semibold">문의 보내기 →</p>
+          <p className="mt-1 text-xs text-muted-foreground">24h 응대</p>
+        </Link>
+      </div>
+
+      {/* 역할별 빠른 진입 */}
+      {(profile.role === "admin" || profile.role === "sme" || profile.role === "instructor") && (
+        <div className="mt-6 flex flex-wrap gap-2">
+          {profile.role === "admin" && (
+            <Link href="/admin" className="rounded-md border border-foreground/30 bg-foreground/5 px-4 py-2 text-sm font-medium hover:bg-foreground/10">
+              🛠 관리자 패널 →
+            </Link>
+          )}
+          {profile.role === "sme" && (
+            <Link href="/sme/dashboard" className="rounded-md border border-foreground/30 bg-foreground/5 px-4 py-2 text-sm font-medium hover:bg-foreground/10">
+              📋 SME 검토 대시보드 →
+            </Link>
+          )}
+          {profile.role === "instructor" && (
+            <Link href="/instructor/weekly-report" className="rounded-md border border-foreground/30 bg-foreground/5 px-4 py-2 text-sm font-medium hover:bg-foreground/10">
+              📝 강사 주간 보고 →
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* 최근 작업 목록 */}
       {recent.length > 0 && (

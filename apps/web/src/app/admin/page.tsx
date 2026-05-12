@@ -200,6 +200,53 @@ export default async function AdminPage() {
         </h1>
       </div>
 
+      {/* 빠른 이동 — 모든 관리자 페이지 */}
+      <div className="mb-10 space-y-6">
+        <AdminNavSection
+          title="운영 모니터링"
+          items={[
+            { href: "/admin/monitoring", label: "실시간 모니터링", desc: "동시접속·API/min·헬스" },
+            { href: "/admin/security", label: "보안 감사", desc: "차단·rate limit·audit_log" },
+            { href: "/admin/integration", label: "통합 분석", desc: "비용·agent 분포" },
+            { href: "/admin/executive", label: "경영 대시보드", desc: "CEO 뷰 (비기술)" },
+          ]}
+        />
+        <AdminNavSection
+          title="학생 케어"
+          items={[
+            { href: "/admin/students", label: "학생 알림", desc: "위험 신호 알림 이력" },
+            { href: "/admin/at-risk-students", label: "위험 학생 모니터", desc: "우선순위·개입 액션" },
+            { href: "/admin/remediation", label: "콘텐츠 보완 큐", desc: "SME 합격선 미달 추적" },
+          ]}
+        />
+        <AdminNavSection
+          title="베타 운영"
+          items={[
+            { href: "/admin/beta-applications", label: "베타 신청 검토", desc: "승인·거부" },
+            { href: "/admin/beta-recruitment", label: "모집 대시보드", desc: "Funnel + 캠페인 효과" },
+          ]}
+        />
+        <AdminNavSection
+          title="Gate G2 (W7-W8)"
+          items={[
+            { href: "/admin/hypothesis-tracking", label: "가설 추적", desc: "5개 KPI 실시간" },
+            { href: "/admin/g2-readiness", label: "G2 종합", desc: "4 조건 진척률" },
+            { href: "/admin/g2-final-report", label: "Final Report", desc: "인쇄·PDF 저장" },
+            { href: "/admin/g2-decision", label: "G2 의사결정", desc: "GO/HOLD/NO-GO 기록" },
+            { href: "/admin/retrospective", label: "4주 회고", desc: "TF 자유 입력" },
+            { href: "/admin/phase3-prep", label: "Phase 3 준비", desc: "확장 체크리스트" },
+          ]}
+        />
+        <AdminNavSection
+          title="자료"
+          items={[
+            { href: "/admin/data-export", label: "데이터 내보내기", desc: "CSV·JSON (PII 해싱)" },
+            { href: "/api/admin/g2-final-report", label: "Final Report JSON", desc: "API 직접 호출" },
+            { href: "/api/health", label: "헬스 체크 JSON", desc: "UptimeRobot 등록용" },
+          ]}
+        />
+      </div>
+
       {/* 핵심 지표 */}
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="전체 작업" value={data.totalJobs.toString()} />
@@ -364,6 +411,36 @@ export default async function AdminPage() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function AdminNavSection({
+  title,
+  items,
+}: {
+  title: string;
+  items: { href: string; label: string; desc: string }[];
+}) {
+  return (
+    <div>
+      <h2 className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+        {title}
+      </h2>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((it) => (
+          <Link
+            key={it.href}
+            href={it.href}
+            className="group block rounded-md border border-border/60 bg-card/40 p-3 transition-colors hover:border-foreground/40 hover:bg-card"
+          >
+            <div className="text-sm font-medium text-foreground group-hover:underline">
+              {it.label} →
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{it.desc}</div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

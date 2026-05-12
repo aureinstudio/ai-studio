@@ -10,11 +10,29 @@ const NAV_ITEMS = [
   { href: "/dashboard/history", label: "내 작업" },
 ];
 
+const ROLE_LINK: Record<string, { href: string; label: string }> = {
+  admin: { href: "/admin", label: "관리자" },
+  sme: { href: "/sme/dashboard", label: "SME" },
+  instructor: { href: "/instructor/weekly-report", label: "강사" },
+};
+
 export async function Header() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // 역할 조회 (로그인 사용자만)
+  let roleLink: { href: string; label: string } | null = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const role = profile?.role as string | undefined;
+    if (role && ROLE_LINK[role]) roleLink = ROLE_LINK[role];
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -52,6 +70,14 @@ export async function Header() {
         <nav className="flex items-center gap-3">
           {user ? (
             <>
+              {roleLink && (
+                <Link
+                  href={roleLink.href}
+                  className="hidden rounded-md border border-foreground/30 px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-foreground/10 sm:inline-block"
+                >
+                  {roleLink.label} →
+                </Link>
+              )}
               <span className="hidden font-mono text-xs text-muted-foreground lg:inline">
                 {user.email}
               </span>
