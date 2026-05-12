@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyCronResult, sendSlackAlert } from "@/lib/notifications/slack";
+import { notifyCronResult, notifyAdmin } from "@/lib/notifications/email";
 
 export const runtime = "nodejs";
 
@@ -10,9 +10,7 @@ const WEEKLY_THRESHOLD_USD = 500;
 
 /**
  * Vercel Cron — 일일 비용 모니터링.
- *
- * 매일 15:00 UTC = 00:00 KST (자정 직후 = 전날 마감 비용 집계).
- * 임계 초과 시 Slack 알림.
+ * 매일 15:00 UTC = 00:00 KST. 임계 초과 시 이메일 알림.
  */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -26,7 +24,6 @@ export async function GET(request: NextRequest) {
   const dayStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  // 최근 24시간 비용 집계 (service별)
   const { data: dayCosts } = await admin
     .from("cost_log")
     .select("service, cost_usd")
@@ -50,7 +47,6 @@ export async function GET(request: NextRequest) {
     .map(([s, c]) => `• ${s}: $${c.toFixed(2)}`)
     .join("\n");
 
-  // 임계 판정
   let level: "ok" | "warning" | "danger" = "ok";
   let alertTitle: string;
   if (dayTotal >= DAILY_THRESHOLD_HIGH) {
@@ -63,31 +59,29 @@ export async function GET(request: NextRequest) {
     alertTitle = `📊 일일 비용 정상: $${dayTotal.toFixed(2)}`;
   }
 
-  // 임계 초과 시만 Slack 알림 (정상 일은 노이즈 회피)
   if (level !== "ok") {
-    await sendSlackAlert({
+    await notifyAdmin({
       title: alertTitle,
       level,
       fields: [
-        { title: "24h 합계", value: `$${dayTotal.toFixed(2)}`, short: true },
-        { title: "7일 합계", value: `$${weekTotal.toFixed(2)}`, short: true },
+        { title: "24h 합계", value: `$${dayTotal.toFixed(2)}` },
+        { title: "7일 합계", value: `$${weekTotal.toFixed(2)}` },
         { title: "service별 분포", value: breakdown || "(없음)" },
       ],
       action_url: `${process.env.NEXT_PUBLIC_BASE_URL ?? "https://ai-studio-drab-nine.vercel.app"}/admin/integration`,
-      action_label: "통합 대시보드",
+      action_label: "통합 대시보드 →",
     });
   }
 
-  // 주간 임계 별도 알림
   if (weekTotal >= WEEKLY_THRESHOLD_USD) {
-    await sendSlackAlert({
+    await notifyAdmin({
       title: `📉 주간 비용 임계 초과: $${weekTotal.toFixed(2)} (한도 $${WEEKLY_THRESHOLD_USD})`,
       level: "warning",
       body: "프로덕션 비용 검토 권장",
     });
   }
 
-  // 정상이어도 결과는 로그
+  // 정상이면 이메일 발송 안 함 (notifyCronResult가 자동 스킵)
   if (level === "ok") {
     await notifyCronResult({
       job_name: "cost-monitor",

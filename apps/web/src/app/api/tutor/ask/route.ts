@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { runTutorChain } from "@/lib/agents/tutor/orchestrator-v1";
 import { SafetyDetector } from "@/lib/agents/tutor/safety-detector";
 import { logCost } from "@/lib/cost-tracker";
-import { notifyAdminAlert } from "@/lib/notifications/slack";
+import { notifyAdminAlert } from "@/lib/notifications/email";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

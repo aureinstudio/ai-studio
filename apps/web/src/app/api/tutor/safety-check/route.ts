@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SafetyDetector } from "@/lib/agents/tutor/safety-detector";
 import { logCost } from "@/lib/cost-tracker";
-import { notifyAdminAlert } from "@/lib/notifications/slack";
+import { notifyAdminAlert } from "@/lib/notifications/email";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyCronResult } from "@/lib/notifications/slack";
+import { notifyCronResult } from "@/lib/notifications/email";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
