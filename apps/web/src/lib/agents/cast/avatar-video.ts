@@ -14,6 +14,8 @@ const DEFAULT_AVATAR_ID = "Anna_public_3_20240108";
  *
  * Vercel function timeout 무관 — 호출 3~5초 내 종료.
  */
+export type AvatarType = "avatar" | "talking_photo";
+
 export async function submitHeyGenVideo(
   scenes: VoiceScene[],
   topic: string,
@@ -21,28 +23,29 @@ export async function submitHeyGenVideo(
   avatarId: string = DEFAULT_AVATAR_ID,
   voiceId: string = "1bd001e7e50f421d891986aad5158bc8",
   callbackUrl?: string,
+  avatarType: AvatarType = "avatar",
 ): Promise<{ video_id: string }> {
   const apiKey = process.env.HEYGEN_API_KEY;
   if (!apiKey) throw new Error("HEYGEN_API_KEY not configured");
 
-  // PIP 레이아웃 — 아바타를 우하단으로 축소 배치 (offset: 0=center, 1=edge).
-  // x=0.7, y=0.7 → 우하단 코너 근처. scale=0.35 → 원본의 35%.
-  const isTalkingPhoto = /^[a-f0-9]{32}$/i.test(avatarId);
-  const character = isTalkingPhoto
-    ? {
-        type: "talking_photo" as const,
-        talking_photo_id: avatarId,
-        scale: 0.35,
-        offset: { x: 0.7, y: 0.7 },
-        talking_photo_style: "circle" as const,
-      }
-    : {
-        type: "avatar" as const,
-        avatar_id: avatarId,
-        avatar_style: "circle" as const,
-        scale: 0.35,
-        offset: { x: 0.7, y: 0.7 },
-      };
+  // PIP 레이아웃 — 우하단 배치. scale=0.45 / offset 0.55 = 화면 내부 확실히 보임.
+  // ⚠️ type 결정은 호출처가 explicit 전달. regex로 추측 금지 (avatar_id와
+  //    talking_photo_id 둘 다 32-char hex 가능 → 잘못 분류 시 HeyGen 캐릭터 silently 생략).
+  const character =
+    avatarType === "talking_photo"
+      ? {
+          type: "talking_photo" as const,
+          talking_photo_id: avatarId,
+          scale: 0.45,
+          offset: { x: 0.55, y: 0.55 },
+        }
+      : {
+          type: "avatar" as const,
+          avatar_id: avatarId,
+          avatar_style: "circle" as const,
+          scale: 0.45,
+          offset: { x: 0.55, y: 0.55 },
+        };
 
   const video_inputs = scenes
     .sort((a, b) => a.slide_number - b.slide_number)
@@ -151,6 +154,7 @@ export async function runCastAvatarVideo(
   avatarId: string = DEFAULT_AVATAR_ID,
   voiceId: string = DEFAULT_KOREAN_VOICE_ID,
   onProgressUpdate?: (status: string, elapsedSec: number) => Promise<void>,
+  avatarType: AvatarType = "avatar",
 ): Promise<{ result: VideoResult; log: AgentLog }> {
   const startedAt = new Date().toISOString();
   const startMs = Date.now();
@@ -182,26 +186,22 @@ export async function runCastAvatarVideo(
   }
 
   try {
-    // avatar_id 형식 감지:
-    // - 32자 hex UUID → talking_photo (사용자 업로드·custom avatar)
-    // - 그 외 (예: Anna_public_3_20240108) → 공개 avatar
-    // PIP 레이아웃 — 슬라이드 위에 우하단 작은 원형 아바타.
-    const isTalkingPhoto = /^[a-f0-9]{32}$/i.test(avatarId);
-    const character = isTalkingPhoto
-      ? {
-          type: "talking_photo" as const,
-          talking_photo_id: avatarId,
-          scale: 0.35,
-          offset: { x: 0.7, y: 0.7 },
-          talking_photo_style: "circle" as const,
-        }
-      : {
-          type: "avatar" as const,
-          avatar_id: avatarId,
-          avatar_style: "circle" as const,
-          scale: 0.35,
-          offset: { x: 0.7, y: 0.7 },
-        };
+    // PIP 레이아웃 — 우하단 원형 아바타. type은 호출처가 explicit 전달.
+    const character =
+      avatarType === "talking_photo"
+        ? {
+            type: "talking_photo" as const,
+            talking_photo_id: avatarId,
+            scale: 0.45,
+            offset: { x: 0.55, y: 0.55 },
+          }
+        : {
+            type: "avatar" as const,
+            avatar_id: avatarId,
+            avatar_style: "circle" as const,
+            scale: 0.45,
+            offset: { x: 0.55, y: 0.55 },
+          };
 
     // 1. video_inputs — 슬라이드별 scene 빌드
     // ElevenLabs 모드: audio_url 사용 / HeyGen 모드: input_text + voice_id 사용

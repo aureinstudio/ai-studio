@@ -218,7 +218,9 @@ export async function POST(request: NextRequest) {
       // - "f-30s" 등 → preset
       let avatarHeygenId: string;
       let avatarVoiceId: string;
+      let avatarType: "avatar" | "talking_photo" = "avatar";
       if (parsed.data.avatar_selection.startsWith("user:")) {
+        // 사용자 업로드 사진 → HeyGen talking_photo
         const userAvatarId = parsed.data.avatar_selection.slice("user:".length);
         const { data: ua } = await admin
           .from("user_avatars")
@@ -235,10 +237,19 @@ export async function POST(request: NextRequest) {
           ua.gender === "male"
             ? "9d81087c3f9a45df8c22ab91cf46ca89"
             : "bef4755ca1f442359c2fe6420690c8f7";
-      } else {
+        avatarType = "talking_photo";
+      } else if (parsed.data.avatar_selection.startsWith("custom:")) {
+        // 사용자가 HeyGen 대시보드에서 복사한 ID — talking_photo로 가정 (대부분 케이스)
         const avatar = parseAvatarSelection(parsed.data.avatar_selection);
         avatarHeygenId = avatar.heygen_avatar_id;
         avatarVoiceId = avatar.heygen_voice_id;
+        avatarType = "talking_photo";
+      } else {
+        // preset (f-30s 등) → HeyGen 공개 avatar
+        const avatar = parseAvatarSelection(parsed.data.avatar_selection);
+        avatarHeygenId = avatar.heygen_avatar_id;
+        avatarVoiceId = avatar.heygen_voice_id;
+        avatarType = "avatar";
       }
 
       // HeyGen webhook URL — 영상 완료 알림 받을 자체 엔드포인트
@@ -261,6 +272,7 @@ export async function POST(request: NextRequest) {
         parsed.data.voice_source,
         avatarVoiceId,
         webhookUrl,
+        avatarType,
       );
       console.log(`[cast/generate] Full chain completed for cast job ${castJob.id}`);
     } catch (err) {

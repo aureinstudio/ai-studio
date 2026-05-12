@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { SlideAnalyzer, type SlideInputMeta, type SlideAnalyzerOutput } from "./slide-analyzer";
 import { ScriptWriter, type ScriptWriterOutput } from "./script-writer";
 import { runCastTTS, type TTSResult } from "./tts";
-import { runCastAvatarVideo, submitHeyGenVideo, type VideoResult, type VoiceScene, type VoiceSource } from "./avatar-video";
+import { runCastAvatarVideo, submitHeyGenVideo, type AvatarType, type VideoResult, type VoiceScene, type VoiceSource } from "./avatar-video";
 import { runCastCaptionsChapters, type CaptionsResult } from "./captions-chapters";
 import { QualityChecker, type QualityCheckerOutput } from "./quality-checker";
 import { generateAllSlideImagesDetailed } from "./slide-image";
@@ -54,6 +54,7 @@ export async function runCastFullChain(
   voiceSource: VoiceSource = "heygen",
   voiceId?: string,
   webhookUrl?: string,
+  avatarType: AvatarType = "avatar",
 ): Promise<CastFullResult> {
   const overallStart = Date.now();
   const agent_logs: AgentLog[] = [];
@@ -340,6 +341,7 @@ export async function runCastFullChain(
           avatarId,
           voiceId,
           webhookUrl,
+          avatarType,
         );
         // 비용은 webhook 완료 시 계산 (영상 길이 알면). 우선 0으로 기록.
         const submittedLog: AgentLog = {
