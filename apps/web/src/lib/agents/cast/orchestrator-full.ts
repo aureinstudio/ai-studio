@@ -5,7 +5,7 @@ import { runCastTTS, type TTSResult } from "./tts";
 import { runCastAvatarVideo, submitHeyGenVideo, type VideoResult, type VoiceScene, type VoiceSource } from "./avatar-video";
 import { runCastCaptionsChapters, type CaptionsResult } from "./captions-chapters";
 import { QualityChecker, type QualityCheckerOutput } from "./quality-checker";
-import { generateAllSlideImages } from "./slide-image";
+import { generateAllSlideImagesDetailed } from "./slide-image";
 import { Agent, AgentError, type AgentLog } from "../base";
 import { logCost } from "@/lib/cost-tracker";
 
@@ -153,10 +153,14 @@ export async function runCastFullChain(
     // ⚡ 슬라이드 이미지 렌더링 — TEAM1과 *병렬* 시작.
     // 슬라이드 이미지는 TEAM1 결과를 필요로 하지 않으므로 LLM과 동시 실행 → ~10s 절약.
     // HeyGen 제출 직전에 await.
-    const slideImagesPromise = generateAllSlideImages(supabase, castJobId, topic, slides)
+    const slideImagesPromise = generateAllSlideImagesDetailed(supabase, castJobId, topic, slides)
       .catch((err) => {
-        console.warn("[cast/slide-image] failed (fail-soft):", err);
-        return slides.map((s) => ({ slide_number: s.slide_number, url: "", path: "" }));
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[cast/slide-image] outer failed (fail-soft):", msg);
+        return {
+          images: slides.map((s) => ({ slide_number: s.slide_number, url: "", path: "" })),
+          first_error: msg,
+        };
       });
 
     // ─── #01 SlideAnalyzer (Haiku 4.5 — 구조 분석은 Haiku 충분) ──────────
@@ -269,15 +273,20 @@ export async function runCastFullChain(
     // 실패 시 단색 fallback (HeyGen이 안전하게 처리).
     const slideImgStarted = await pushStartedLog("cast-06", "슬라이드 이미지 렌더");
     const slideImgStartMs = new Date(slideImgStarted.started_at).getTime();
-    const slideImages = await slideImagesPromise;
+    const slideImagesResult = await slideImagesPromise;
+    const slideImages = slideImagesResult.images;
     const okCount = slideImages.filter((s) => s.url).length;
+    const failCount = slides.length - okCount;
+    const errorParts: string[] = [];
+    if (failCount > 0) errorParts.push(`${failCount}장 렌더 실패 (단색 fallback)`);
+    if (slideImagesResult.first_error) errorParts.push(`사유: ${slideImagesResult.first_error}`);
     await replaceLog(slideImgStarted, {
       ...slideImgStarted,
       status: okCount > 0 ? "completed" : "failed",
       completed_at: new Date().toISOString(),
       duration_ms: Date.now() - slideImgStartMs,
       tokens_out: okCount,
-      error: okCount === slides.length ? undefined : `${slides.length - okCount}장 렌더 실패 (단색 fallback)`,
+      error: errorParts.length > 0 ? errorParts.join(" · ") : undefined,
     });
     const bgBySlide = new Map(slideImages.map((s) => [s.slide_number, s.url]));
 

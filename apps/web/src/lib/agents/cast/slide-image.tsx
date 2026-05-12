@@ -191,17 +191,39 @@ export async function generateSlideImage(
 /**
  * 전체 슬라이드 병렬 렌더. 실패한 장은 url=""로 반환 (HeyGen이 단색 fallback).
  */
+export type SlideImageBatchResult = {
+  images: SlideImageResult[];
+  first_error: string | null;
+};
+
 export async function generateAllSlideImages(
   supabase: SupabaseClient,
   castJobId: string,
   topic: string,
   slides: SlideInputMeta[],
 ): Promise<SlideImageResult[]> {
+  const r = await generateAllSlideImagesDetailed(supabase, castJobId, topic, slides);
+  return r.images;
+}
+
+/**
+ * 상세 버전 — 첫 번째 실패 에러 메시지 함께 반환 (orchestrator가 agent_logs.error에 노출).
+ */
+export async function generateAllSlideImagesDetailed(
+  supabase: SupabaseClient,
+  castJobId: string,
+  topic: string,
+  slides: SlideInputMeta[],
+): Promise<SlideImageBatchResult> {
+  let firstError: string | null = null;
   const tasks = slides.map((s) =>
     generateSlideImage(supabase, castJobId, topic, s).catch((err) => {
-      console.warn(`[cast/slide-image] slide ${s.slide_number} failed:`, err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[cast/slide-image] slide ${s.slide_number} failed: ${msg}`);
+      if (!firstError) firstError = msg;
       return { slide_number: s.slide_number, url: "", path: "" } as SlideImageResult;
     }),
   );
-  return Promise.all(tasks);
+  const images = await Promise.all(tasks);
+  return { images, first_error: firstError };
 }
