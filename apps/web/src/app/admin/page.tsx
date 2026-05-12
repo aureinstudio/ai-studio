@@ -97,14 +97,49 @@ async function getAdminData() {
         (recentJobs ?? []).filter((j) => j.duration_seconds).length
       : 0;
 
-  // Cast 통계 (Mode A vs Mode B)
+  // Cast 통계 (Mode A vs Mode B) + 품질 점수
   const { data: castStats } = await supabase
     .from("cast_jobs")
-    .select("mode, status, cost_usd")
+    .select("mode, status, cost_usd, quality_score, retry_count")
     .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
   const castA = (castStats ?? []).filter((c) => c.mode === "batch");
   const castB = (castStats ?? []).filter((c) => c.mode === "realtime");
+
+  // 품질 점수 집계 (Mode A 만 — quality_score 존재)
+  type QualityScore = {
+    naturalness_score?: number;
+    pacing_score?: number;
+    clarity_score?: number;
+    overall_pass?: boolean;
+  };
+  const withQuality = (castStats ?? []).filter(
+    (c): c is typeof c & { quality_score: QualityScore } => !!c.quality_score,
+  );
+  const qualityAvg = withQuality.length
+    ? {
+        naturalness: withQuality.reduce(
+          (s, c) => s + (c.quality_score.naturalness_score ?? 0),
+          0,
+        ) / withQuality.length,
+        pacing: withQuality.reduce(
+          (s, c) => s + (c.quality_score.pacing_score ?? 0),
+          0,
+        ) / withQuality.length,
+        clarity: withQuality.reduce(
+          (s, c) => s + (c.quality_score.clarity_score ?? 0),
+          0,
+        ) / withQuality.length,
+        pass_rate:
+          withQuality.filter((c) => c.quality_score.overall_pass).length /
+          withQuality.length,
+      }
+    : null;
+  const totalRetries = (castStats ?? []).reduce(
+    (s, c) => s + (Number(c.retry_count) || 0),
+    0,
+  );
+
   const castStat = {
     a_count: castA.length,
     a_cost: castA.reduce((s, c) => s + (Number(c.cost_usd) || 0), 0),
@@ -112,6 +147,9 @@ async function getAdminData() {
     b_count: castB.length,
     b_cost: castB.reduce((s, c) => s + (Number(c.cost_usd) || 0), 0),
     b_completed: castB.filter((c) => c.status === "completed").length,
+    quality: qualityAvg,
+    quality_samples: withQuality.length,
+    total_retries: totalRetries,
   };
 
   return {
@@ -194,7 +232,7 @@ export default async function AdminPage() {
       </div>
 
       {/* Cast 통계 (30일) */}
-      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard
           label="Cast Mode A (batch, 30일)"
           value={data.castStat.a_count.toString()}
@@ -218,6 +256,34 @@ export default async function AdminPage() {
           }`}
         />
       </div>
+
+      {/* Cast 품질 점수 (#07 QualityChecker) */}
+      {data.castStat.quality && (
+        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-5">
+          <StatCard
+            label="자연성 (#07)"
+            value={data.castStat.quality.naturalness.toFixed(0)}
+            sub={`${data.castStat.quality_samples}건 기준`}
+          />
+          <StatCard
+            label="페이싱"
+            value={data.castStat.quality.pacing.toFixed(0)}
+          />
+          <StatCard
+            label="명료성"
+            value={data.castStat.quality.clarity.toFixed(0)}
+          />
+          <StatCard
+            label="품질 통과율"
+            value={`${(data.castStat.quality.pass_rate * 100).toFixed(0)}%`}
+          />
+          <StatCard
+            label="자동 재생성"
+            value={data.castStat.total_retries.toString()}
+            sub="누적 retry"
+          />
+        </div>
+      )}
 
       {/* 에이전트 호출 빈도 */}
       <Card className="mb-6 border-border/60 bg-card/80">

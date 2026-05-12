@@ -4,12 +4,15 @@ import { ScriptWriter, type ScriptWriterOutput } from "./script-writer";
 import { runCastTTS, type TTSResult } from "./tts";
 import { runCastAvatarVideo, submitHeyGenVideo, type VideoResult, type VoiceScene, type VoiceSource } from "./avatar-video";
 import { runCastCaptionsChapters, type CaptionsResult } from "./captions-chapters";
+import { QualityChecker, type QualityCheckerOutput } from "./quality-checker";
 import { Agent, AgentError, type AgentLog } from "../base";
 import { logCost } from "@/lib/cost-tracker";
 
 export type CastFullResult = {
   analysis: SlideAnalyzerOutput;
   scripts: ScriptWriterOutput;
+  quality: QualityCheckerOutput | null;
+  retry_count: number;
   tts: TTSResult;
   video: VideoResult;
   captions: CaptionsResult;
@@ -154,12 +157,55 @@ export async function runCastFullChain(
     });
 
     // ─── #02 ScriptWriter ───────────────────────────
-    const r02 = await runLLM(new ScriptWriter(model), {
+    let r02 = await runLLM(new ScriptWriter(model), {
       topic,
       slides,
       analysis: r01.output,
       is_certification: isCertification,
     });
+
+    // ─── #07 QualityChecker (스크립트 사전 검증) + 자동 재시도 ─────
+    // HeyGen 비용 발생 전 스크립트 품질 검증. fail 시 ScriptWriter 1회 재시도.
+    let quality: QualityCheckerOutput | null = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 1;
+
+    const runQualityCheck = async () => {
+      return await runLLM(new QualityChecker(model), {
+        topic,
+        scripts: r02.output.scripts,
+        expected_duration_seconds: r01.output.total_estimated_duration,
+      });
+    };
+
+    try {
+      const qc = await runQualityCheck();
+      quality = qc.output;
+
+      if (!quality.overall_pass && quality.regenerate_recommended && retryCount < MAX_RETRIES) {
+        // 재생성 — ScriptWriter 다시 실행 (이슈 피드백 포함)
+        retryCount++;
+        console.warn(
+          `[cast-07] quality fail (n=${quality.naturalness_score}/p=${quality.pacing_score}/c=${quality.clarity_score}). Issues: ${quality.issues.join("; ")}. Retrying ScriptWriter...`,
+        );
+        await persistJobField({ retry_count: retryCount });
+        r02 = await runLLM(new ScriptWriter(model), {
+          topic,
+          slides,
+          analysis: r01.output,
+          is_certification: isCertification,
+        });
+        // 재검증
+        const qc2 = await runQualityCheck();
+        quality = qc2.output;
+      }
+
+      // 품질 정보 DB 저장
+      await persistJobField({ quality_score: quality, retry_count: retryCount });
+    } catch (err) {
+      // QualityChecker 자체 실패는 fail-soft — 검증 없이 진행
+      console.warn("[cast-07] quality check failed (fail-soft, continuing):", err);
+    }
 
     // ─── #03 TTS (조건부) ────────────────────────────
     // voiceSource='heygen': TTS 스킵, HeyGen이 자체 TTS로 영상 생성
@@ -338,6 +384,8 @@ export async function runCastFullChain(
     return {
       analysis: r01.output,
       scripts: r02.output,
+      quality,
+      retry_count: retryCount,
       tts: tts.result,
       video: video.result,
       captions: captions.result,
