@@ -2,7 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { after } from "next/server";
 import { runTutorChain } from "@/lib/agents/tutor/orchestrator-v1";
+import { SafetyDetector } from "@/lib/agents/tutor/safety-detector";
+import { logCost } from "@/lib/cost-tracker";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -133,6 +136,66 @@ export async function POST(request: NextRequest) {
         .select("id")
         .single();
       conversationId = newConv?.id ?? null;
+    }
+
+    // 자동 안전 감지 — rejected이거나 5턴마다 백그라운드 트리거
+    const shouldRunSafety =
+      isRejected ||
+      result.intent.intent === "personal_emotion" ||
+      result.intent.intent === "off_topic" ||
+      ((parsed.data.conversation_id ?? conversationId) &&
+        ((((await admin
+          .from("tutor_conversations")
+          .select("total_messages")
+          .eq("id", conversationId!)
+          .maybeSingle()).data?.total_messages ?? 0) % 5) === 0));
+
+    if (shouldRunSafety && conversationId) {
+      after(async () => {
+        try {
+          const { data: convFull } = await admin
+            .from("tutor_conversations")
+            .select("messages, total_messages, rejected_count, last_active_at, student_id")
+            .eq("id", conversationId!)
+            .maybeSingle();
+          if (!convFull) return;
+          const detector = new SafetyDetector();
+          const r09 = await detector.execute({
+            student_label: `student-${convFull.student_id.slice(0, 8)}`,
+            course_topic: job.topic,
+            recent_messages: (convFull.messages ?? []) as { role: "user" | "assistant"; content: string }[],
+            total_messages: convFull.total_messages ?? 0,
+            rejected_count: convFull.rejected_count ?? 0,
+            days_since_last_activity: 0,
+          });
+          await logCost({
+            supabase: admin,
+            service: "tutor",
+            endpoint: "/api/tutor/ask",
+            userId: convFull.student_id,
+            tokensIn: r09.log.tokens_in,
+            tokensOut: r09.log.tokens_out,
+            costUsd: r09.log.cost_usd,
+            metadata: { stage: "safety_auto", conversation_id: conversationId },
+          });
+          if (r09.output.alert_required && r09.output.alert_target !== "none") {
+            for (const signal of r09.output.risk_signals) {
+              await admin.from("admin_alerts").insert({
+                alert_type: signal.type,
+                severity: signal.severity,
+                student_id: convFull.student_id,
+                source_conversation_id: conversationId,
+                evidence: { items: signal.evidence, trend: signal.trend, first_detected: signal.first_detected },
+                recommended_intervention: r09.output.recommended_intervention,
+                alert_target: r09.output.alert_target,
+                dropout_risk_score: r09.output.dropout_risk_score,
+              });
+            }
+          }
+        } catch (err) {
+          console.warn("[tutor/ask] safety check failed (non-fatal):", err);
+        }
+      });
     }
 
     return NextResponse.json({

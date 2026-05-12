@@ -51,6 +51,7 @@ export function TutorClient({ courseOptions }: { courseOptions: CourseOption[] }
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [indexing, setIndexing] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +60,30 @@ export function TutorClient({ courseOptions }: { courseOptions: CourseOption[] }
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  async function handleEvaluate() {
+    if (!conversationId) {
+      setError("4번 이상 대화 후 평가 가능합니다");
+      return;
+    }
+    setEvaluating(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/tutor/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail ?? data?.error ?? `HTTP ${res.status}`);
+      // /dashboard/learning으로 이동
+      window.location.href = "/dashboard/learning";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "평가 실패");
+    } finally {
+      setEvaluating(false);
+    }
+  }
 
   async function handleIndex() {
     if (!selectedJobId) return;
@@ -274,6 +299,27 @@ export function TutorClient({ courseOptions }: { courseOptions: CourseOption[] }
               <p className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-300">
                 {error}
               </p>
+            )}
+
+            {/* 이해도 평가 버튼 (대화 4턴 이상일 때) */}
+            {conversationId && messages.length >= 4 && (
+              <div className="border-t border-border/40 pt-3">
+                <Button
+                  type="button"
+                  onClick={handleEvaluate}
+                  disabled={evaluating}
+                  size="sm"
+                  className="w-full bg-foreground text-background hover:bg-foreground/90"
+                >
+                  {evaluating
+                    ? "이해도 평가 중... (~10초)"
+                    : "📊 이해도 평가 + 학습 권장 받기 (~$0.03)"}
+                </Button>
+                <p className="mt-1 text-center text-[10px] text-muted-foreground">
+                  #05 ComprehensionEvaluator + #06 RecommendationEngine 실행 →
+                  결과는 <a href="/dashboard/learning" className="underline">/dashboard/learning</a>
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
