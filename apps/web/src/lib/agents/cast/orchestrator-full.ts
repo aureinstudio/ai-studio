@@ -5,6 +5,7 @@ import { runCastTTS, type TTSResult } from "./tts";
 import { runCastAvatarVideo, submitHeyGenVideo, type VideoResult, type VoiceScene, type VoiceSource } from "./avatar-video";
 import { runCastCaptionsChapters, type CaptionsResult } from "./captions-chapters";
 import { QualityChecker, type QualityCheckerOutput } from "./quality-checker";
+import { generateAllSlideImages } from "./slide-image";
 import { Agent, AgentError, type AgentLog } from "../base";
 import { logCost } from "@/lib/cost-tracker";
 
@@ -251,15 +252,51 @@ export async function runCastFullChain(
       }
     }
 
+    // ─── 슬라이드 이미지 렌더 (PPT+아바타 PIP용) ─────
+    // 각 슬라이드를 1920×1080 PNG로 변환 → Storage 업로드 → HeyGen background로 사용.
+    // 실패 시 단색 fallback (HeyGen이 안전하게 처리).
+    const slideImgStarted = await pushStartedLog("cast-06", "슬라이드 이미지 렌더");
+    let slideImages: { slide_number: number; url: string }[] = [];
+    try {
+      slideImages = await generateAllSlideImages(supabase, castJobId, topic, slides);
+      const okCount = slideImages.filter((s) => s.url).length;
+      await replaceLog(slideImgStarted, {
+        ...slideImgStarted,
+        status: okCount > 0 ? "completed" : "failed",
+        completed_at: new Date().toISOString(),
+        duration_ms: Date.now() - new Date(slideImgStarted.started_at).getTime(),
+        tokens_out: okCount,
+        error: okCount === slides.length ? undefined : `${slides.length - okCount}장 렌더 실패 (단색 fallback)`,
+      });
+    } catch (err) {
+      await replaceLog(slideImgStarted, {
+        ...slideImgStarted,
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        duration_ms: Date.now() - new Date(slideImgStarted.started_at).getTime(),
+        error: err instanceof Error ? err.message : String(err),
+      });
+      console.warn("[cast/slide-image] all failed (fail-soft):", err);
+    }
+    const bgBySlide = new Map(slideImages.map((s) => [s.slide_number, s.url]));
+
     // ─── #04 AvatarVideo (HeyGen) ───────────────────
     // voiceSource='heygen': 스크립트 텍스트 → HeyGen TTS로 영상 생성 (audio_url 없음)
     // voiceSource='elevenlabs': audio_files → audio_url로 영상 생성
     let video: { result: { video_url: string; video_path: string | null; duration_sec: number; cost_usd: number; heygen_video_id: string }; log: AgentLog };
 
-    // scene 빌드 — 모드에 따라 다른 입력
+    // scene 빌드 — 모드에 따라 다른 입력 + 슬라이드 background 첨부
     const scenes: VoiceScene[] = voiceSource === "heygen"
-      ? r02.output.scripts.map((s) => ({ slide_number: s.slide_number, text: s.script_text }))
-      : tts.result.audio_files.map((a) => ({ slide_number: a.slide_number, audio_url: a.audio_url }));
+      ? r02.output.scripts.map((s) => ({
+          slide_number: s.slide_number,
+          text: s.script_text,
+          background_image_url: bgBySlide.get(s.slide_number) || undefined,
+        }))
+      : tts.result.audio_files.map((a) => ({
+          slide_number: a.slide_number,
+          audio_url: a.audio_url,
+          background_image_url: bgBySlide.get(a.slide_number) || undefined,
+        }));
 
     if (scenes.length === 0) {
       const now = new Date().toISOString();

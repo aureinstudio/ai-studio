@@ -25,19 +25,39 @@ export async function submitHeyGenVideo(
   const apiKey = process.env.HEYGEN_API_KEY;
   if (!apiKey) throw new Error("HEYGEN_API_KEY not configured");
 
+  // PIP 레이아웃 — 아바타를 우하단으로 축소 배치 (offset: 0=center, 1=edge).
+  // x=0.7, y=0.7 → 우하단 코너 근처. scale=0.35 → 원본의 35%.
   const isTalkingPhoto = /^[a-f0-9]{32}$/i.test(avatarId);
   const character = isTalkingPhoto
-    ? { type: "talking_photo" as const, talking_photo_id: avatarId }
-    : { type: "avatar" as const, avatar_id: avatarId, avatar_style: "normal" as const };
+    ? {
+        type: "talking_photo" as const,
+        talking_photo_id: avatarId,
+        scale: 0.35,
+        offset: { x: 0.7, y: 0.7 },
+        talking_photo_style: "circle" as const,
+      }
+    : {
+        type: "avatar" as const,
+        avatar_id: avatarId,
+        avatar_style: "circle" as const,
+        scale: 0.35,
+        offset: { x: 0.7, y: 0.7 },
+      };
 
   const video_inputs = scenes
     .sort((a, b) => a.slide_number - b.slide_number)
-    .map((scene) => ({
-      character,
-      voice: scene.audio_url
-        ? ({ type: "audio" as const, audio_url: scene.audio_url })
-        : ({ type: "text" as const, input_text: scene.text ?? "", voice_id: voiceId }),
-    }));
+    .map((scene) => {
+      const background = scene.background_image_url
+        ? { type: "image" as const, url: scene.background_image_url, fit: "cover" as const }
+        : { type: "color" as const, value: "#0f172a" };
+      return {
+        character,
+        voice: scene.audio_url
+          ? ({ type: "audio" as const, audio_url: scene.audio_url })
+          : ({ type: "text" as const, input_text: scene.text ?? "", voice_id: voiceId }),
+        background,
+      };
+    });
 
   const body: Record<string, unknown> = {
     video_inputs,
@@ -76,6 +96,8 @@ export type VoiceScene = {
   audio_url?: string;
   // HeyGen 모드 — 텍스트를 HeyGen TTS로 변환
   text?: string;
+  // PIP 레이아웃 — 슬라이드 이미지를 영상 background로 사용
+  background_image_url?: string;
 };
 const POLL_INTERVAL_MS = 15_000;
 const MAX_POLL_ATTEMPTS = 80; // 80 × 15s = 20분 최대
@@ -142,28 +164,40 @@ export async function runCastAvatarVideo(
     // avatar_id 형식 감지:
     // - 32자 hex UUID → talking_photo (사용자 업로드·custom avatar)
     // - 그 외 (예: Anna_public_3_20240108) → 공개 avatar
+    // PIP 레이아웃 — 슬라이드 위에 우하단 작은 원형 아바타.
     const isTalkingPhoto = /^[a-f0-9]{32}$/i.test(avatarId);
     const character = isTalkingPhoto
       ? {
           type: "talking_photo" as const,
           talking_photo_id: avatarId,
+          scale: 0.35,
+          offset: { x: 0.7, y: 0.7 },
+          talking_photo_style: "circle" as const,
         }
       : {
           type: "avatar" as const,
           avatar_id: avatarId,
-          avatar_style: "normal" as const,
+          avatar_style: "circle" as const,
+          scale: 0.35,
+          offset: { x: 0.7, y: 0.7 },
         };
 
     // 1. video_inputs — 슬라이드별 scene 빌드
     // ElevenLabs 모드: audio_url 사용 / HeyGen 모드: input_text + voice_id 사용
     const video_inputs = scenes
       .sort((a, b) => a.slide_number - b.slide_number)
-      .map((scene) => ({
-        character,
-        voice: scene.audio_url
-          ? ({ type: "audio" as const, audio_url: scene.audio_url })
-          : ({ type: "text" as const, input_text: scene.text ?? "", voice_id: voiceId }),
-      }));
+      .map((scene) => {
+        const background = scene.background_image_url
+          ? { type: "image" as const, url: scene.background_image_url, fit: "cover" as const }
+          : { type: "color" as const, value: "#0f172a" };
+        return {
+          character,
+          voice: scene.audio_url
+            ? ({ type: "audio" as const, audio_url: scene.audio_url })
+            : ({ type: "text" as const, input_text: scene.text ?? "", voice_id: voiceId }),
+          background,
+        };
+      });
 
     // 2. POST /v2/video/generate
     const startRes = await fetch(`${HEYGEN_API_BASE}/v2/video/generate`, {
