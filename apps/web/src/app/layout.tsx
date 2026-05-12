@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { CookieConsent } from "@/components/CookieConsent";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/server";
 
@@ -53,6 +54,7 @@ export default async function RootLayout({
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
+          <CookieConsent />
         </AuthProvider>
       </body>
     </html>

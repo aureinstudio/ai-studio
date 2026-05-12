@@ -7,17 +7,38 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { BUSINESS_INFO } from "@/lib/legal/business-info";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  // 약관 동의 (3개 필수 + 1개 선택)
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
+  const [agreeBeta, setAgreeBeta] = useState(false);
+  const [agreeMarketing, setAgreeMarketing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  const allRequiredAgreed = agreeTerms && agreePrivacy && agreeBeta;
+  const allAgreed = allRequiredAgreed && agreeMarketing;
+
+  function toggleAll() {
+    const next = !allAgreed;
+    setAgreeTerms(next);
+    setAgreePrivacy(next);
+    setAgreeBeta(next);
+    setAgreeMarketing(next);
+  }
+
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    if (!allRequiredAgreed) {
+      setError("필수 약관 3개에 모두 동의해야 가입 가능합니다.");
+      return;
+    }
     setLoading(true);
     setError(null);
     const supabase = createClient();
@@ -29,19 +50,55 @@ export default function SignupPage() {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       setError(error.message);
       return;
     }
-    // Confirm email OFF인 경우 session 즉시 발급 → /dashboard 이동
-    // ON인 경우 session=null → 안내 메시지
+
+    // 동의 기록 저장 (세션 있을 때만 — 즉시 인증)
+    if (data.session) {
+      try {
+        await fetch("/api/legal/consent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            consents: [
+              {
+                consent_type: "terms_of_service",
+                version: BUSINESS_INFO.versions.terms_of_service,
+                agreed: true,
+              },
+              {
+                consent_type: "privacy_policy",
+                version: BUSINESS_INFO.versions.privacy_policy,
+                agreed: true,
+              },
+              {
+                consent_type: "beta_consent",
+                version: BUSINESS_INFO.versions.beta_consent,
+                agreed: true,
+              },
+              {
+                consent_type: "marketing",
+                version: "v1",
+                agreed: agreeMarketing,
+              },
+            ],
+          }),
+        });
+      } catch (err) {
+        console.warn("[signup] consent log failed (non-fatal):", err);
+      }
+    }
+
+    setLoading(false);
     if (data.session) {
       router.push("/dashboard");
       router.refresh();
     } else {
       setError(
-        "가입이 완료되었습니다. 이메일 인증 링크가 전송되었으니 확인 후 로그인해주세요.",
+        "가입이 완료되었습니다. 이메일 인증 후 첫 로그인 시 약관 동의가 자동 기록됩니다.",
       );
     }
   }
@@ -116,15 +173,64 @@ export default function SignupPage() {
               />
             </div>
 
+            {/* 약관 동의 */}
+            <div className="space-y-2 rounded-md border border-border bg-background/40 p-3">
+              <label className="flex cursor-pointer items-center gap-2 border-b border-border/40 pb-2 text-sm font-medium text-foreground">
+                <input
+                  type="checkbox"
+                  checked={allAgreed}
+                  onChange={toggleAll}
+                  disabled={loading}
+                  className="h-4 w-4 accent-foreground"
+                />
+                전체 동의 (선택 포함)
+              </label>
+
+              <ConsentItem
+                checked={agreeTerms}
+                onChange={setAgreeTerms}
+                disabled={loading}
+                required
+                label="이용약관에 동의합니다"
+                link="/legal/terms"
+              />
+              <ConsentItem
+                checked={agreePrivacy}
+                onChange={setAgreePrivacy}
+                disabled={loading}
+                required
+                label="개인정보처리방침에 동의합니다"
+                link="/legal/privacy"
+              />
+              <ConsentItem
+                checked={agreeBeta}
+                onChange={setAgreeBeta}
+                disabled={loading}
+                required
+                label="베타 참여 동의서에 동의합니다"
+                link="/legal/beta-consent"
+              />
+              <ConsentItem
+                checked={agreeMarketing}
+                onChange={setAgreeMarketing}
+                disabled={loading}
+                label="마케팅 정보 수신에 동의합니다 (선택)"
+              />
+            </div>
+
             {error && <p className="text-sm text-red-400">{error}</p>}
 
             <Button
               type="submit"
               size="lg"
-              disabled={loading || !email || !password || !name}
+              disabled={loading || !email || !password || !name || !allRequiredAgreed}
               className="h-11 w-full bg-foreground text-base font-medium text-background hover:bg-foreground/90"
             >
-              {loading ? "가입 중..." : "가입하기"}
+              {loading
+                ? "가입 중..."
+                : allRequiredAgreed
+                  ? "가입하기"
+                  : "필수 약관 동의 필요"}
             </Button>
           </form>
         </CardContent>
@@ -140,5 +246,52 @@ export default function SignupPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+function ConsentItem({
+  checked,
+  onChange,
+  disabled,
+  required,
+  label,
+  link,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled: boolean;
+  required?: boolean;
+  label: string;
+  link?: string;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2 text-xs">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+        className="mt-0.5 h-4 w-4 accent-foreground"
+      />
+      <span className="flex-1">
+        <span className={required ? "text-foreground" : "text-muted-foreground"}>
+          {required && <span className="text-red-400">[필수] </span>}
+          {!required && <span className="opacity-60">[선택] </span>}
+          {label}
+        </span>
+        {link && (
+          <>
+            {" "}
+            <Link
+              href={link}
+              target="_blank"
+              className="text-muted-foreground underline hover:text-foreground"
+            >
+              보기
+            </Link>
+          </>
+        )}
+      </span>
+    </label>
   );
 }
