@@ -26,6 +26,13 @@ type AssistantMessage = {
   block_reason?: string | null;
   sources: Source[];
   cost_usd: number;
+  // v1 추가 메타
+  intent?: string;
+  complexity?: string;
+  detected_language?: string;
+  response_language?: string;
+  suggested_next_step?: string | null;
+  duration_ms?: number;
 };
 
 type UserMessage = {
@@ -119,6 +126,12 @@ export function TutorClient({ courseOptions }: { courseOptions: CourseOption[] }
           block_reason: data.block_reason,
           sources: data.sources ?? [],
           cost_usd: data.cost_usd ?? 0,
+          intent: data.intent,
+          complexity: data.complexity,
+          detected_language: data.detected_language,
+          response_language: data.response_language,
+          suggested_next_step: data.suggested_next_step,
+          duration_ms: data.duration_ms,
         },
       ]);
       if (data.conversation_id) setConversationId(data.conversation_id);
@@ -294,7 +307,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
               : "border-border bg-background/40 text-foreground"
         }`}
       >
-        <div className="mb-1.5 flex items-center gap-2 text-[10px] font-medium uppercase tracking-widest">
+        <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[10px] font-medium uppercase tracking-widest">
           <span
             className={
               isRejected
@@ -305,17 +318,33 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             }
           >
             AI 튜터 ·{" "}
-            {isRejected
-              ? "차단됨"
-              : isRevision
-                ? "수정됨"
-                : "승인"}
+            {isRejected ? "차단됨" : isRevision ? "수정됨" : "승인"}
           </span>
           <span className="font-mono text-muted-foreground">
             신뢰도 {message.confidence_score}/100
           </span>
+          {message.intent && (
+            <span className="rounded-full border border-border bg-card px-1.5 py-0.5 text-muted-foreground">
+              {message.intent}
+            </span>
+          )}
+          {message.detected_language && message.detected_language !== "ko" && (
+            <span className="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-blue-400">
+              {message.detected_language} → {message.response_language}
+            </span>
+          )}
+          {message.duration_ms != null && (
+            <span className="font-mono text-muted-foreground/60">
+              {(message.duration_ms / 1000).toFixed(1)}s
+            </span>
+          )}
         </div>
         <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+        {message.suggested_next_step && !isRejected && (
+          <p className="mt-2 border-t border-border/30 pt-2 text-[11px] italic text-muted-foreground">
+            💡 다음 단계: {message.suggested_next_step}
+          </p>
+        )}
       </div>
 
       {/* 출처 */}
