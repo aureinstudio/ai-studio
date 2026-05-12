@@ -9,20 +9,20 @@
 export const BUSINESS_INFO = {
   // 기본 정보
   company_name: "KEG · Korean Education Group",
-  representative: "[본부장 성함]", // ⚠️ 본부장이 입력
-  business_registration_number: "[123-45-67890]", // ⚠️ 본부장이 입력
+  representative: "김영우", // ⚠️ 본부장이 입력
+  business_registration_number: "214-87-88737", // ⚠️ 본부장이 입력
   online_business_number: "[제2026-서울XX-XXXX호]", // ⚠️ 통신판매업 신고번호 (해당 시)
 
   // 주소·연락처
-  address: "[서울특별시 ...]", // ⚠️ 본부장이 입력
-  phone: "[02-XXXX-XXXX]", // ⚠️ 본부장이 입력
-  email: "aureinstudio@gmail.com",
+  address: "서울특별시 강남구 도곡동 946번지 부영빌딩 4층", // ⚠️ 본부장이 입력
+  phone: "02-3471-0531", // ⚠️ 본부장이 입력
+  email: "keg@koreaedugroup.com",
 
   // 개인정보 보호책임자
   privacy_officer: {
-    name: "[보호책임자 성함]",
-    contact_email: "aureinstudio@gmail.com",
-    phone: "[02-XXXX-XXXX]",
+    name: "김영우",
+    contact_email: "keg@koreaedugroup.com",
+    phone: "02-3471-0531",
   },
 
   // 서비스 정보

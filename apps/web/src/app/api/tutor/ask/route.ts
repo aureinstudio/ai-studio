@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { runTutorChain } from "@/lib/agents/tutor/orchestrator-v1";
 import { SafetyDetector } from "@/lib/agents/tutor/safety-detector";
 import { logCost } from "@/lib/cost-tracker";
+import { notifyAdminAlert } from "@/lib/notifications/slack";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -189,6 +190,15 @@ export async function POST(request: NextRequest) {
                 recommended_intervention: r09.output.recommended_intervention,
                 alert_target: r09.output.alert_target,
                 dropout_risk_score: r09.output.dropout_risk_score,
+              });
+              // Slack 알림 (medium·high만 — low는 노이즈 회피)
+              await notifyAdminAlert({
+                alert_type: signal.type,
+                severity: signal.severity,
+                student_label: convFull.student_id.slice(0, 8),
+                evidence: signal.evidence,
+                intervention: r09.output.recommended_intervention,
+                dropout_risk: r09.output.dropout_risk_score,
               });
             }
           }

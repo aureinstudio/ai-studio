@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SafetyDetector } from "@/lib/agents/tutor/safety-detector";
 import { logCost } from "@/lib/cost-tracker";
+import { notifyAdminAlert } from "@/lib/notifications/slack";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -100,7 +101,6 @@ export async function POST(request: NextRequest) {
 
     const alertsCreated: string[] = [];
     if (r09.output.alert_required && r09.output.alert_target !== "none") {
-      // 각 위험 신호를 별도 알림으로 저장
       for (const signal of r09.output.risk_signals) {
         const { data: alert } = await admin
           .from("admin_alerts")
@@ -117,6 +117,15 @@ export async function POST(request: NextRequest) {
           .select("id")
           .single();
         if (alert?.id) alertsCreated.push(alert.id);
+        // Slack 알림 (medium·high만)
+        await notifyAdminAlert({
+          alert_type: signal.type,
+          severity: signal.severity,
+          student_label: conv.student_id.slice(0, 8),
+          evidence: signal.evidence,
+          intervention: r09.output.recommended_intervention,
+          dropout_risk: r09.output.dropout_risk_score,
+        });
       }
     }
 
