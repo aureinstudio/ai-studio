@@ -77,11 +77,32 @@ export async function submitHeyGenVideo(
 
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    throw new Error(`HeyGen generate ${res.status}: ${txt.slice(0, 500)}`);
+    throw new Error(translateHeyGenError(res.status, txt));
   }
 
   const json = (await res.json()) as { data: { video_id: string } };
   return { video_id: json.data.video_id };
+}
+
+/**
+ * HeyGen 영문 에러 → 한국어 가이드 메시지.
+ */
+function translateHeyGenError(status: number, body: string): string {
+  const lower = body.toLowerCase();
+  if (/insufficient.+credit|api.+credit/i.test(body)) {
+    return "HeyGen API 크레딧이 부족합니다. 관리자에게 문의해 주세요. (HeyGen 대시보드 → Settings → API Credits)";
+  }
+  if (status === 401 || status === 403) {
+    return "HeyGen 인증 실패. API 키를 확인해 주세요.";
+  }
+  if (status === 429 || lower.includes("rate limit")) {
+    return "HeyGen 호출 한도 초과. 잠시 후 다시 시도해 주세요.";
+  }
+  if (lower.includes("avatar") && lower.includes("not found")) {
+    return "선택한 아바타를 찾을 수 없습니다. 다른 아바타로 다시 시도해 주세요.";
+  }
+  // 알려진 패턴 외 — 원문 일부 유지
+  return `HeyGen 영상 생성 실패 (${status}). ${body.slice(0, 200)}`;
 }
 
 // HeyGen 자체 TTS용 한국어 voice. 본부장이 HeyGen voices에서 동양인·한국어 voice 검증 권장.
@@ -212,7 +233,7 @@ export async function runCastAvatarVideo(
 
     if (!startRes.ok) {
       const txt = await startRes.text().catch(() => "");
-      throw new Error(`HeyGen generate ${startRes.status}: ${txt.slice(0, 500)}`);
+      throw new Error(translateHeyGenError(startRes.status, txt));
     }
 
     const startData = (await startRes.json()) as { data: { video_id: string } };
