@@ -39,3 +39,5 @@
 # typescript
 **/*.tsbuildinfo
 **/next-env.d.ts
+tests/load/tokens.json
+apps/web/flip-sample.ts
