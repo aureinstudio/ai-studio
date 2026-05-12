@@ -6,6 +6,10 @@ import { runDynamicChain } from "@/lib/agents/orchestrator-dynamic";
 // Note: avatar 선택은 Cast 측만 — Studio는 변경 없음
 import { DAILY_USD_LIMIT } from "@/lib/limits";
 import { ALLOWED_MODELS } from "@/lib/anthropic/client";
+import { checkRateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
+import { checkCostBudget, costBlockResponse, recordCostWarnings } from "@/lib/cost-guard";
+import { detectThreats, logThreat, threatBlockResponse } from "@/lib/security/input-filter";
+import { notifyAdmin } from "@/lib/notifications/email";
 
 // Vercel Pro plan — 최대 800초. 13 에이전트 체인 (Sonnet ~225s, Opus ~380s) 여유 있게 수용
 export const maxDuration = 800;
@@ -43,7 +47,46 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 3. 일일 비용 한도 체크 — 한도 도달 시 새 작업 차단
+  // 3. admin·rate limit·입력 위협·비용 가드 — 다층 검사
+  const adminClient = createAdminClient();
+  const { data: profile } = await adminClient
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const isAdmin = profile?.role === "admin";
+
+  const rl = await checkRateLimit("studio:generate", user.id, {
+    isAdmin,
+    ipFallback: getClientIp(request),
+  });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
+  const threat = detectThreats(parsed.data.topic);
+  if (threat.threats.length > 0) {
+    await logThreat(adminClient, {
+      userId: user.id,
+      endpoint: "/api/studio/generate",
+      ip: getClientIp(request),
+      input: parsed.data.topic,
+      result: threat,
+    });
+  }
+  if (threat.blocked) return threatBlockResponse(threat);
+
+  const budget = await checkCostBudget(adminClient, {
+    userId: user.id,
+    service: "all",
+    isAdmin,
+  });
+  if (!budget.allowed) return costBlockResponse(budget);
+  if (budget.warnings.length > 0) {
+    await recordCostWarnings(adminClient, user.id, budget.warnings, async (title, body) => {
+      await notifyAdmin({ title, body, level: "warning" });
+    });
+  }
+
+  // 기존 일일 한도(레거시·하위호환) — cost-guard와 OR 차단. 둘 다 통과해야 진행.
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const { data: todayCosts } = await supabase
@@ -55,7 +98,7 @@ export async function POST(request: NextRequest) {
     (sum, row) => sum + Number(row.cost_usd ?? 0),
     0,
   );
-  if (usedUsd >= DAILY_USD_LIMIT) {
+  if (!isAdmin && usedUsd >= DAILY_USD_LIMIT) {
     return NextResponse.json(
       {
         error: "daily_limit_reached",

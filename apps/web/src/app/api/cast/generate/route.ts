@@ -7,6 +7,9 @@ import { parseAvatarSelection } from "@/lib/agents/cast/avatar-presets";
 import { CAST_DAILY_LIMIT_USD } from "@/lib/limits";
 import { calculateTtsCost } from "@/lib/external/elevenlabs";
 import { calculateVideoCost } from "@/lib/external/heygen";
+import { checkRateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
+import { checkCostBudget, costBlockResponse, recordCostWarnings } from "@/lib/cost-guard";
+import { notifyAdmin } from "@/lib/notifications/email";
 
 export const maxDuration = 800;
 export const runtime = "nodejs";
@@ -80,6 +83,33 @@ export async function POST(request: NextRequest) {
       { error: "invalid_request", issues: parsed.error.issues },
       { status: 400 },
     );
+  }
+
+  // 0. admin·rate limit·비용 가드
+  const adminClient = createAdminClient();
+  const { data: profile } = await adminClient
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const isAdmin = profile?.role === "admin";
+
+  const rl = await checkRateLimit("cast:generate", user.id, {
+    isAdmin,
+    ipFallback: getClientIp(request),
+  });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
+  const budget = await checkCostBudget(adminClient, {
+    userId: user.id,
+    service: "cast",
+    isAdmin,
+  });
+  if (!budget.allowed) return costBlockResponse(budget);
+  if (budget.warnings.length > 0) {
+    await recordCostWarnings(adminClient, user.id, budget.warnings, async (title, body) => {
+      await notifyAdmin({ title, body, level: "warning" });
+    });
   }
 
   // 1. Studio job 로드 + 권한 확인

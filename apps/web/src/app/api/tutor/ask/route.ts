@@ -6,7 +6,10 @@ import { after } from "next/server";
 import { runTutorChain } from "@/lib/agents/tutor/orchestrator-v1";
 import { SafetyDetector } from "@/lib/agents/tutor/safety-detector";
 import { logCost } from "@/lib/cost-tracker";
-import { notifyAdminAlert } from "@/lib/notifications/email";
+import { notifyAdminAlert, notifyAdmin } from "@/lib/notifications/email";
+import { checkRateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
+import { checkCostBudget, costBlockResponse, recordCostWarnings } from "@/lib/cost-guard";
+import { detectThreats, logThreat, threatBlockResponse } from "@/lib/security/input-filter";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -53,6 +56,47 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+
+  // admin 여부 — 모든 가드 면제 (시연·테스트용)
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const isAdmin = profile?.role === "admin";
+
+  // Rate limit — 분당 10회/사용자
+  const rl = await checkRateLimit("tutor:ask", user.id, {
+    isAdmin,
+    ipFallback: getClientIp(request),
+  });
+  if (!rl.allowed) return rateLimitResponse(rl);
+
+  // 입력 위협 검사 — 프롬프트 인젝션·시스템 추출·DoS
+  const threat = detectThreats(parsed.data.question);
+  if (threat.threats.length > 0) {
+    await logThreat(admin, {
+      userId: user.id,
+      endpoint: "/api/tutor/ask",
+      ip: getClientIp(request),
+      input: parsed.data.question,
+      result: threat,
+    });
+  }
+  if (threat.blocked) return threatBlockResponse(threat);
+
+  // 비용 한도 검사 (per-user daily/monthly + global)
+  const budget = await checkCostBudget(admin, {
+    userId: user.id,
+    service: "all",
+    isAdmin,
+  });
+  if (!budget.allowed) return costBlockResponse(budget);
+  if (budget.warnings.length > 0) {
+    await recordCostWarnings(admin, user.id, budget.warnings, async (title, body) => {
+      await notifyAdmin({ title, body, level: "warning" });
+    });
+  }
 
   // 권한·콘텐츠 검증
   const { data: job } = await admin
