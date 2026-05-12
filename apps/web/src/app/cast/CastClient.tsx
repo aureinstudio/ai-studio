@@ -80,6 +80,7 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
   const [avatarSource, setAvatarSource] = useState<AvatarSource>("generate");
   // 음성 소스 (HeyGen 자체 TTS 기본 — 무료·시연 안정성)
   const [voiceSource, setVoiceSource] = useState<VoiceSource>("heygen");
+  const [testMode, setTestMode] = useState<boolean>(false);
   // 사용자 avatar (업로드·AI 생성 결과)
   const [userAvatars, setUserAvatars] = useState<UserAvatar[]>([]);
   const [selectedUserAvatarId, setSelectedUserAvatarId] = useState<string | null>(null);
@@ -157,6 +158,7 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
             studio_job_id: selectedId,
             mode: "batch",
             approve_cost: false,
+            test_mode: testMode,
           }),
         });
         const data = await res.json();
@@ -214,6 +216,7 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
           approve_cost: true,
           avatar_selection: avatarSelection,
           voice_source: voiceSource,
+          test_mode: testMode,
         }),
       });
       const data = await res.json();
@@ -528,6 +531,46 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
                   ElevenLabs 무료 한도 10,000자/월. 한도 도달 시 자동으로 HeyGen TTS로 fallback.
                 </p>
               )}
+            </div>
+
+            {/* 테스트 모드 — 슬라이드 2장만 렌더 (~1분, ~$6 절감) */}
+            <div className="mt-4 border-t border-border/40 pt-4">
+              <button
+                type="button"
+                disabled={inProgress}
+                onClick={() => setTestMode((v) => !v)}
+                className={`flex w-full items-center justify-between rounded-md border px-3 py-3 text-left transition-colors ${
+                  testMode
+                    ? "border-amber-500 bg-amber-500/15 text-foreground"
+                    : "border-border bg-transparent text-foreground hover:bg-card"
+                } disabled:opacity-50`}
+              >
+                <span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-medium">🧪 테스트 모드</span>
+                    {testMode && (
+                      <span className="rounded-full bg-amber-500/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-amber-200">
+                        ON
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    처음 슬라이드 2장만 렌더 · ~1분 영상 · 비용 ~1/4. 기능·디자인 검증용.
+                  </span>
+                </span>
+                <span
+                  aria-hidden
+                  className={`flex h-5 w-9 items-center rounded-full p-0.5 transition-colors ${
+                    testMode ? "bg-amber-500" : "bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`block h-4 w-4 rounded-full bg-background transition-transform ${
+                      testMode ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </span>
+              </button>
             </div>
           </CardContent>
         </Card>

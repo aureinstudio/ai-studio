@@ -22,7 +22,11 @@ const requestSchema = z.object({
   avatar_selection: z.string().default("f-30s"),
   // 음성 소스 — heygen 자체 TTS (기본·저렴) 또는 elevenlabs (고품질)
   voice_source: z.enum(["heygen", "elevenlabs"]).default("heygen"),
+  // 테스트 모드 — 처음 2장만 렌더 (~1분 영상, ~$0.50). 기능 검증용.
+  test_mode: z.boolean().default(false),
 });
+
+const TEST_MODE_SLIDE_LIMIT = 2;
 
 type SlideMeta = {
   slide_number: number;
@@ -132,13 +136,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const slides: SlideMeta[] =
+  const allSlides: SlideMeta[] =
     studioJob.content?.planner?.slides ??
     studioJob.content?.team2?.planner?.slides ??
     [];
-  if (slides.length === 0) {
+  if (allSlides.length === 0) {
     return NextResponse.json({ error: "no_slides_in_studio_job" }, { status: 400 });
   }
+  // 테스트 모드 — 처음 2장만 사용해 비용 1/4로 축소
+  const slides: SlideMeta[] = parsed.data.test_mode
+    ? allSlides.slice(0, TEST_MODE_SLIDE_LIMIT)
+    : allSlides;
 
   // 2. 비용 추정
   const est = estimateCost(slides);
