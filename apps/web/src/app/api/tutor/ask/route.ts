@@ -10,6 +10,7 @@ import { notifyAdminAlert, notifyAdmin } from "@/lib/notifications/email";
 import { checkRateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 import { checkCostBudget, costBlockResponse, recordCostWarnings } from "@/lib/cost-guard";
 import { detectThreats, logThreat, threatBlockResponse } from "@/lib/security/input-filter";
+import { resolveUser } from "@/lib/supabase/bearer-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -37,8 +38,9 @@ const requestSchema = z.object({
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
-    data: { user },
+    data: { user: cookieUser },
   } = await supabase.auth.getUser();
+  const user = await resolveUser(request, cookieUser);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   let body: unknown;
