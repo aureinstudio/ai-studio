@@ -26,13 +26,13 @@ type CastJob = {
 export function AskClient({ avatars }: { avatars: AvatarOption[] }) {
   const [question, setQuestion] = useState("");
   const [courseContext, setCourseContext] = useState("");
+  const [generateVideo, setGenerateVideo] = useState(false);
   const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(
     avatars[0]?.id ?? null,
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<CastJob | null>(null);
-  const [remaining, setRemaining] = useState<number | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const inProgress =
@@ -66,8 +66,8 @@ export function AskClient({ avatars }: { avatars: AvatarOption[] }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedAvatarId) {
-      setError("아바타를 선택해주세요. /cast 페이지에서 먼저 아바타 생성 필요.");
+    if (generateVideo && !selectedAvatarId) {
+      setError("영상 생성 시 아바타가 필요합니다. /cast 페이지에서 먼저 생성하세요.");
       return;
     }
     setSubmitting(true);
@@ -80,7 +80,8 @@ export function AskClient({ avatars }: { avatars: AvatarOption[] }) {
         body: JSON.stringify({
           question: question.trim(),
           course_context: courseContext.trim() || undefined,
-          avatar_selection: `user:${selectedAvatarId}`,
+          generate_video: generateVideo,
+          avatar_selection: generateVideo && selectedAvatarId ? `user:${selectedAvatarId}` : undefined,
           max_duration_seconds: 120,
         }),
       });
@@ -97,7 +98,6 @@ export function AskClient({ avatars }: { avatars: AvatarOption[] }) {
         video_url: null,
         error_message: null,
       });
-      setRemaining(data.remaining_today ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -167,48 +167,83 @@ export function AskClient({ avatars }: { avatars: AvatarOption[] }) {
               />
             </div>
 
+            {/* 영상 생성 토글 */}
             <div>
-              <label className="mb-2 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                강사 아바타 ({avatars.length}개)
-              </label>
-              <div className="space-y-2">
-                {avatars.map((a) => (
-                  <label
-                    key={a.id}
-                    className={`flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 transition-colors ${
-                      selectedAvatarId === a.id
-                        ? "border-foreground bg-foreground/5"
-                        : "border-border bg-transparent hover:bg-card"
-                    } ${inProgress ? "pointer-events-none opacity-50" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name="avatar"
-                      checked={selectedAvatarId === a.id}
-                      onChange={() => setSelectedAvatarId(a.id)}
-                      disabled={inProgress}
-                      className="h-4 w-4 accent-foreground"
-                    />
-                    {a.source_image_url && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={a.source_image_url}
-                        alt={a.label}
-                        className="h-10 w-10 rounded-md border border-border object-cover"
-                      />
-                    )}
-                    <span className="flex-1 text-sm text-foreground">
-                      {a.label}
-                      {a.gender && (
-                        <span className="ml-2 font-mono text-[10px] text-muted-foreground">
-                          {a.gender === "female" ? "여성" : "남성"}
-                        </span>
-                      )}
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+                  generateVideo
+                    ? "border-amber-500/40 bg-amber-500/10"
+                    : "border-border bg-background/40 hover:bg-card"
+                } ${inProgress ? "pointer-events-none opacity-50" : ""}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={generateVideo}
+                  onChange={(e) => setGenerateVideo(e.target.checked)}
+                  disabled={inProgress}
+                  className="mt-0.5 h-4 w-4 accent-foreground"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    영상으로 받기{" "}
+                    <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-widest ${
+                      generateVideo ? "bg-amber-500/20 text-amber-300" : "bg-muted-foreground/10 text-muted-foreground"
+                    }`}>
+                      선택 · 추가 비용
                     </span>
-                  </label>
-                ))}
-              </div>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    체크 해제: <span className="text-foreground">텍스트 답변만 (~$0.01, 10초)</span> · 체크: <span className="text-amber-300">영상 추가 (+$0.50~1.00, +3~5분)</span>
+                  </p>
+                </div>
+              </label>
             </div>
+
+            {/* 아바타 선택 — generate_video=true 일 때만 */}
+            {generateVideo && (
+              <div>
+                <label className="mb-2 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  강사 아바타 ({avatars.length}개)
+                </label>
+                <div className="space-y-2">
+                  {avatars.map((a) => (
+                    <label
+                      key={a.id}
+                      className={`flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 transition-colors ${
+                        selectedAvatarId === a.id
+                          ? "border-foreground bg-foreground/5"
+                          : "border-border bg-transparent hover:bg-card"
+                      } ${inProgress ? "pointer-events-none opacity-50" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="avatar"
+                        checked={selectedAvatarId === a.id}
+                        onChange={() => setSelectedAvatarId(a.id)}
+                        disabled={inProgress}
+                        className="h-4 w-4 accent-foreground"
+                      />
+                      {a.source_image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={a.source_image_url}
+                          alt={a.label}
+                          className="h-10 w-10 rounded-md border border-border object-cover"
+                        />
+                      )}
+                      <span className="flex-1 text-sm text-foreground">
+                        {a.label}
+                        {a.gender && (
+                          <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                            {a.gender === "female" ? "여성" : "남성"}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {error && (
               <p className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
@@ -219,19 +254,27 @@ export function AskClient({ avatars }: { avatars: AvatarOption[] }) {
             <Button
               type="submit"
               size="lg"
-              disabled={submitting || inProgress || !question.trim() || !selectedAvatarId}
+              disabled={
+                submitting ||
+                inProgress ||
+                !question.trim() ||
+                (generateVideo && !selectedAvatarId)
+              }
               className="h-11 w-full bg-foreground text-base font-medium text-background hover:bg-foreground/90"
             >
               {submitting
                 ? "전송 중..."
                 : inProgress
                   ? "응답 생성 중..."
-                  : "영상 답변 받기 (~$0.50, 2~5분)"}
+                  : generateVideo
+                    ? "텍스트 + 영상 받기 (~$0.50, 3~5분)"
+                    : "텍스트 답변 받기 (~$0.01, ~10초)"}
             </Button>
 
             <p className="text-[10px] text-muted-foreground">
-              Mode B 한도: 호출당 최대 $1, 일일 5회.
-              {remaining !== null && ` (오늘 ${5 - remaining}회 사용, ${remaining}회 남음)`}
+              {generateVideo
+                ? "Mode B 영상 한도: 일일 5회. 텍스트는 무제한."
+                : "텍스트 답변은 매우 저렴하고 빠릅니다."}
             </p>
           </form>
         </CardContent>

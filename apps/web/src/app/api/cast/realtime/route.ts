@@ -14,14 +14,21 @@ import type { AgentLog } from "@/lib/agents/base";
 export const maxDuration = 60;
 export const runtime = "nodejs";
 
-const requestSchema = z.object({
-  question: z.string().min(5).max(500),
-  course_context: z.string().max(300).optional(),
-  /** user_avatars.id 또는 "custom:HEYGEN_ID" — 미제공 시 차단 */
-  avatar_selection: z.string().min(1),
-  voice_id: z.string().optional(),
-  max_duration_seconds: z.number().int().min(30).max(180).default(120),
-});
+const requestSchema = z
+  .object({
+    question: z.string().min(5).max(500),
+    course_context: z.string().max(300).optional(),
+    /** 텍스트만 답변할지 (기본) vs 영상까지 생성할지 */
+    generate_video: z.boolean().default(false),
+    /** generate_video=true 일 때만 필수 */
+    avatar_selection: z.string().optional(),
+    voice_id: z.string().optional(),
+    max_duration_seconds: z.number().int().min(30).max(180).default(120),
+  })
+  .refine(
+    (data) => !data.generate_video || !!data.avatar_selection,
+    { message: "generate_video=true 시 avatar_selection 필요", path: ["avatar_selection"] },
+  );
 
 export async function POST(request: NextRequest) {
   // 1. 인증
@@ -46,62 +53,66 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 3. Mode B 일일 호출 횟수 한도
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const { count: todayCount } = await supabase
-    .from("cast_jobs")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("mode", "realtime")
-    .gte("created_at", todayStart.toISOString());
-
-  if ((todayCount ?? 0) >= CAST_MODE_B_DAILY_CALLS) {
-    return NextResponse.json(
-      {
-        error: "mode_b_daily_limit_reached",
-        used: todayCount,
-        limit: CAST_MODE_B_DAILY_CALLS,
-        message: `오늘 Mode B 호출 ${todayCount}회로 한도 ${CAST_MODE_B_DAILY_CALLS}회에 도달했습니다.`,
-      },
-      { status: 429 },
-    );
-  }
-
-  // 4. 아바타 ID 해석
-  const admin = createAdminClient();
-  let avatarHeygenId: string;
-  let voiceId =
-    parsed.data.voice_id ?? "1bd001e7e50f421d891986aad5158bc8";
-
-  if (parsed.data.avatar_selection.startsWith("user:")) {
-    const userAvatarId = parsed.data.avatar_selection.slice("user:".length);
-    const { data: ua } = await admin
-      .from("user_avatars")
-      .select("heygen_talking_photo_id, gender")
-      .eq("id", userAvatarId)
+  // 3. 일일 한도 — 영상 생성 시에만 적용 (텍스트는 비용 적어 한도 없음)
+  if (parsed.data.generate_video) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const { count: todayVideoCount } = await supabase
+      .from("cast_jobs")
+      .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .single();
-    if (!ua) {
+      .eq("mode", "realtime")
+      .not("heygen_video_id", "is", null)
+      .gte("created_at", todayStart.toISOString());
+
+    if ((todayVideoCount ?? 0) >= CAST_MODE_B_DAILY_CALLS) {
       return NextResponse.json(
-        { error: "avatar_not_found", id: userAvatarId },
-        { status: 404 },
+        {
+          error: "mode_b_video_daily_limit_reached",
+          used: todayVideoCount,
+          limit: CAST_MODE_B_DAILY_CALLS,
+          message: `오늘 Mode B 영상 생성 ${todayVideoCount}회로 한도 ${CAST_MODE_B_DAILY_CALLS}회에 도달했습니다. 텍스트 답변은 계속 사용 가능합니다.`,
+        },
+        { status: 429 },
       );
     }
-    avatarHeygenId = ua.heygen_talking_photo_id;
-    if (!parsed.data.voice_id) {
+  }
+
+  // 4. 아바타 ID 해석 (영상 생성 시에만 필요)
+  const admin = createAdminClient();
+  let avatarHeygenId: string | null = null;
+  let voiceId: string | null = null;
+
+  if (parsed.data.generate_video && parsed.data.avatar_selection) {
+    if (parsed.data.avatar_selection.startsWith("user:")) {
+      const userAvatarId = parsed.data.avatar_selection.slice("user:".length);
+      const { data: ua } = await admin
+        .from("user_avatars")
+        .select("heygen_talking_photo_id, gender")
+        .eq("id", userAvatarId)
+        .eq("user_id", user.id)
+        .single();
+      if (!ua) {
+        return NextResponse.json(
+          { error: "avatar_not_found", id: userAvatarId },
+          { status: 404 },
+        );
+      }
+      avatarHeygenId = ua.heygen_talking_photo_id;
       voiceId =
-        ua.gender === "male"
+        parsed.data.voice_id ??
+        (ua.gender === "male"
           ? "9d81087c3f9a45df8c22ab91cf46ca89"
-          : "bef4755ca1f442359c2fe6420690c8f7";
+          : "bef4755ca1f442359c2fe6420690c8f7");
+    } else if (parsed.data.avatar_selection.startsWith("custom:")) {
+      avatarHeygenId = parsed.data.avatar_selection.slice("custom:".length);
+      voiceId = parsed.data.voice_id ?? "bef4755ca1f442359c2fe6420690c8f7";
+    } else {
+      return NextResponse.json(
+        { error: "invalid_avatar_selection" },
+        { status: 400 },
+      );
     }
-  } else if (parsed.data.avatar_selection.startsWith("custom:")) {
-    avatarHeygenId = parsed.data.avatar_selection.slice("custom:".length);
-  } else {
-    return NextResponse.json(
-      { error: "invalid_avatar_selection", message: "user:UUID 또는 custom:ID 형식 필요" },
-      { status: 400 },
-    );
   }
 
   // 5. cast_job 생성 (pending)
@@ -187,53 +198,70 @@ export async function POST(request: NextRequest) {
         return;
       }
 
-      // ─ HeyGen 영상 제출 (단일 scene)
-      const scene: VoiceScene = {
-        slide_number: 1,
-        text: r06.output.answer_text,
+      // 텍스트 답변은 즉시 저장 (영상 여부와 무관)
+      const baseOutput = {
+        question: parsed.data.question,
+        answer_text: r06.output.answer_text,
+        estimated_duration_seconds: r06.output.estimated_duration_seconds,
       };
-      const submittedAt = new Date().toISOString();
-      const videoLog: AgentLog = {
-        agent_id: "cast-04",
-        agent_name: "아바타 영상 합성",
-        status: "started",
-        started_at: submittedAt,
-        completed_at: submittedAt,
-        duration_ms: 0,
-        tokens_in: 0,
-        tokens_out: 0,
-        cost_usd: 0,
-        error: "HeyGen 제출 — webhook 대기 중",
-      };
-      agent_logs.push(videoLog);
-      await persistLogs();
 
-      const { video_id } = await submitHeyGenVideo(
-        [scene],
-        `Q&A: ${parsed.data.question.slice(0, 30)}`,
-        castJob.id,
-        avatarHeygenId,
-        voiceId,
-        webhookUrl,
-      );
+      // ─ 영상 생성 — generate_video=true 일 때만
+      if (parsed.data.generate_video && avatarHeygenId && voiceId) {
+        const scene: VoiceScene = {
+          slide_number: 1,
+          text: r06.output.answer_text,
+        };
+        const submittedAt = new Date().toISOString();
+        const videoLog: AgentLog = {
+          agent_id: "cast-04",
+          agent_name: "아바타 영상 합성",
+          status: "started",
+          started_at: submittedAt,
+          completed_at: submittedAt,
+          duration_ms: 0,
+          tokens_in: 0,
+          tokens_out: 0,
+          cost_usd: 0,
+          error: "HeyGen 제출 — webhook 대기 중",
+        };
+        agent_logs.push(videoLog);
+        await persistLogs();
 
-      videoLog.error = `HeyGen 제출됨 (video_id: ${video_id.slice(0, 8)}…) — webhook 대기 중`;
-      await persistLogs();
+        const { video_id } = await submitHeyGenVideo(
+          [scene],
+          `Q&A: ${parsed.data.question.slice(0, 30)}`,
+          castJob.id,
+          avatarHeygenId,
+          voiceId,
+          webhookUrl,
+        );
 
-      await admin
-        .from("cast_jobs")
-        .update({
-          status: "rendering",
-          heygen_video_id: video_id,
-          output: {
-            question: parsed.data.question,
-            answer_text: r06.output.answer_text,
-            estimated_duration_seconds: r06.output.estimated_duration_seconds,
-          },
-          cost_usd: r06.log.cost_usd, // LLM 비용만 우선 기록 (영상은 webhook에서 추가)
-          agent_logs,
-        })
-        .eq("id", castJob.id);
+        videoLog.error = `HeyGen 제출됨 (video_id: ${video_id.slice(0, 8)}…) — webhook 대기 중`;
+        await persistLogs();
+
+        await admin
+          .from("cast_jobs")
+          .update({
+            status: "rendering",
+            heygen_video_id: video_id,
+            output: baseOutput,
+            cost_usd: r06.log.cost_usd, // LLM 비용만, 영상은 webhook에서 추가
+            agent_logs,
+          })
+          .eq("id", castJob.id);
+      } else {
+        // 텍스트만 — 즉시 완료
+        await admin
+          .from("cast_jobs")
+          .update({
+            status: "completed",
+            output: baseOutput,
+            cost_usd: r06.log.cost_usd,
+            agent_logs,
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", castJob.id);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[cast/realtime] failed for cast_job ${castJob.id}:`, err);
@@ -251,6 +279,6 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     cast_job_id: castJob.id,
     status: "pending",
-    remaining_today: Math.max(0, CAST_MODE_B_DAILY_CALLS - (todayCount ?? 0) - 1),
+    generate_video: parsed.data.generate_video,
   });
 }
