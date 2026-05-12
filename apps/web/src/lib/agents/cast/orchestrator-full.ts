@@ -150,8 +150,20 @@ export async function runCastFullChain(
   await persistJobField({ status: "running", agent_logs: [] });
 
   try {
-    // ─── #01 SlideAnalyzer ──────────────────────────
-    const r01 = await runLLM(new SlideAnalyzer(model), {
+    // ⚡ 슬라이드 이미지 렌더링 — TEAM1과 *병렬* 시작.
+    // 슬라이드 이미지는 TEAM1 결과를 필요로 하지 않으므로 LLM과 동시 실행 → ~10s 절약.
+    // HeyGen 제출 직전에 await.
+    const slideImagesPromise = generateAllSlideImages(supabase, castJobId, topic, slides)
+      .catch((err) => {
+        console.warn("[cast/slide-image] failed (fail-soft):", err);
+        return slides.map((s) => ({ slide_number: s.slide_number, url: "", path: "" }));
+      });
+
+    // ─── #01 SlideAnalyzer (Haiku 4.5 — 구조 분석은 Haiku 충분) ──────────
+    // Sonnet 대비 ~3-5x 빠름 + 80% 저렴. 본부장이 명시적으로 Opus 지정 시는 따름.
+    const analyzerModel =
+      model && model.startsWith("claude-opus") ? model : "claude-haiku-4-5";
+    const r01 = await runLLM(new SlideAnalyzer(analyzerModel), {
       topic,
       slides,
       is_certification: isCertification,
@@ -253,31 +265,20 @@ export async function runCastFullChain(
     }
 
     // ─── 슬라이드 이미지 렌더 (PPT+아바타 PIP용) ─────
-    // 각 슬라이드를 1920×1080 PNG로 변환 → Storage 업로드 → HeyGen background로 사용.
+    // 위에서 TEAM1과 병렬로 이미 시작됨 — 여기서 결과 await.
     // 실패 시 단색 fallback (HeyGen이 안전하게 처리).
     const slideImgStarted = await pushStartedLog("cast-06", "슬라이드 이미지 렌더");
-    let slideImages: { slide_number: number; url: string }[] = [];
-    try {
-      slideImages = await generateAllSlideImages(supabase, castJobId, topic, slides);
-      const okCount = slideImages.filter((s) => s.url).length;
-      await replaceLog(slideImgStarted, {
-        ...slideImgStarted,
-        status: okCount > 0 ? "completed" : "failed",
-        completed_at: new Date().toISOString(),
-        duration_ms: Date.now() - new Date(slideImgStarted.started_at).getTime(),
-        tokens_out: okCount,
-        error: okCount === slides.length ? undefined : `${slides.length - okCount}장 렌더 실패 (단색 fallback)`,
-      });
-    } catch (err) {
-      await replaceLog(slideImgStarted, {
-        ...slideImgStarted,
-        status: "failed",
-        completed_at: new Date().toISOString(),
-        duration_ms: Date.now() - new Date(slideImgStarted.started_at).getTime(),
-        error: err instanceof Error ? err.message : String(err),
-      });
-      console.warn("[cast/slide-image] all failed (fail-soft):", err);
-    }
+    const slideImgStartMs = new Date(slideImgStarted.started_at).getTime();
+    const slideImages = await slideImagesPromise;
+    const okCount = slideImages.filter((s) => s.url).length;
+    await replaceLog(slideImgStarted, {
+      ...slideImgStarted,
+      status: okCount > 0 ? "completed" : "failed",
+      completed_at: new Date().toISOString(),
+      duration_ms: Date.now() - slideImgStartMs,
+      tokens_out: okCount,
+      error: okCount === slides.length ? undefined : `${slides.length - okCount}장 렌더 실패 (단색 fallback)`,
+    });
     const bgBySlide = new Map(slideImages.map((s) => [s.slide_number, s.url]));
 
     // ─── #04 AvatarVideo (HeyGen) ───────────────────

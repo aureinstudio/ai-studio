@@ -75,6 +75,20 @@ export abstract class Agent<TInput, TOutput> {
     let response;
     try {
       // 스트리밍 — 진행 상황을 onProgress로 노출 (UI 실시간 토큰 카운트)
+      // 캐시 전략:
+      //   1. 시스템 프롬프트: 매 호출 동일 → ephemeral 캐시
+      //   2. user message: 1024+ 토큰일 때만 캐시 (Anthropic 최소 한도).
+      //      재시도·재생성 또는 동일 입력 반복 시 90% 입력 비용 절감 + ~20% 빨라짐.
+      const userText = this.buildUserMessage(input);
+      const userContent = userText.length > 3000
+        ? [
+            {
+              type: "text" as const,
+              text: userText,
+              cache_control: { type: "ephemeral" as const },
+            },
+          ]
+        : userText;
       const stream = anthropic.messages.stream({
         model: this.model,
         max_tokens: this.maxTokens,
@@ -86,7 +100,7 @@ export abstract class Agent<TInput, TOutput> {
             cache_control: { type: "ephemeral" as const },
           },
         ],
-        messages: [{ role: "user", content: this.buildUserMessage(input) }],
+        messages: [{ role: "user", content: userContent }],
       });
 
       let charsSoFar = 0;
