@@ -5,6 +5,8 @@ import { LogoutButton } from "./LogoutButton";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "대시보드" },
   { href: "/studio", label: "Studio" },
+  { href: "/cast", label: "Cast" },
+  { href: "/tutor", label: "Tutor" },
   { href: "/dashboard/history", label: "내 작업" },
 ];
 
