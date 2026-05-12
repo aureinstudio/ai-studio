@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "./LogoutButton";
+import { ThemeToggle } from "./ThemeToggle";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "대시보드" },
@@ -66,8 +67,9 @@ export async function Header() {
           )}
         </div>
 
-        {/* Right: 사용자 / 로그인 */}
+        {/* Right: 테마 + 사용자 / 로그인 */}
         <nav className="flex items-center gap-3">
+          <ThemeToggle />
           {user ? (
             <>
               {roleLink && (

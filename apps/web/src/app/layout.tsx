@@ -43,12 +43,26 @@ export default async function RootLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
+  // FOUC 회피 — 페인트 전 .dark 클래스 결정.
+  // localStorage('theme') 우선 → prefers-color-scheme → 기본 dark.
+  const themeInitScript = `
+    (function(){try{
+      var s=localStorage.getItem('theme');
+      var d=s?s==='dark':(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if(d===false){document.documentElement.classList.remove('dark');}
+      else{document.documentElement.classList.add('dark');}
+    }catch(e){document.documentElement.classList.add('dark');}})();
+  `;
+
   return (
     <html
       lang="ko"
-      className={`dark ${inter.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <AuthProvider initialUser={user}>
           <Header />
