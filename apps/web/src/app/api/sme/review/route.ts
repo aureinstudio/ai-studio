@@ -66,13 +66,30 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // 합격선 미달 (avg < 4.0) → 본부장 알림
+  // 합격선 미달 (avg < 4.0) → 본부장 알림 + 보완 큐 자동 등록
   if (avg < 4.0) {
     const { data: job } = await admin
       .from("studio_jobs")
       .select("topic")
       .eq("id", parsed.data.studio_job_id)
       .maybeSingle();
+
+    // 보완 큐 — 같은 job·pending 중복 회피
+    const { data: existingQ } = await admin
+      .from("content_remediation_queue")
+      .select("id")
+      .eq("studio_job_id", parsed.data.studio_job_id)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (!existingQ) {
+      await admin.from("content_remediation_queue").insert({
+        studio_job_id: parsed.data.studio_job_id,
+        reason: "sme_fail_avg_lt_4.0",
+        avg_score: Number(avg.toFixed(2)),
+        improvements: parsed.data.improvements ?? null,
+        triggered_by: user.id,
+      });
+    }
     await notifyAdmin({
       title: `⚠ SME 합격선 미달 — "${job?.topic ?? "(미상)"}" 평균 ${avg.toFixed(1)}/5`,
       body: parsed.data.improvements ?? "(개선 의견 없음)",
