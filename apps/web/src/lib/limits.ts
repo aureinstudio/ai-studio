@@ -15,6 +15,17 @@ export const CAST_DAILY_LIMIT_USD = Number(
 );
 
 /**
+ * Cast Mode B (실시간 질문 응답) 가드.
+ * Mode A 대비 짧고 빈번한 호출 → 별도 한도.
+ */
+export const CAST_MODE_B_MAX_USD_PER_CALL = Number(
+  process.env.CAST_MODE_B_MAX_USD ?? 1.0,
+);
+export const CAST_MODE_B_DAILY_CALLS = Number(
+  process.env.CAST_MODE_B_DAILY_CALLS ?? 5,
+);
+
+/**
  * 한도 도달 % 기반 색상 결정.
  * - <80%: 녹색 (정상)
  * - 80~99%: 노랑 (주의)

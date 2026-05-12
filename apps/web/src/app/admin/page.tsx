@@ -97,6 +97,23 @@ async function getAdminData() {
         (recentJobs ?? []).filter((j) => j.duration_seconds).length
       : 0;
 
+  // Cast 통계 (Mode A vs Mode B)
+  const { data: castStats } = await supabase
+    .from("cast_jobs")
+    .select("mode, status, cost_usd")
+    .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+  const castA = (castStats ?? []).filter((c) => c.mode === "batch");
+  const castB = (castStats ?? []).filter((c) => c.mode === "realtime");
+  const castStat = {
+    a_count: castA.length,
+    a_cost: castA.reduce((s, c) => s + (Number(c.cost_usd) || 0), 0),
+    a_completed: castA.filter((c) => c.status === "completed").length,
+    b_count: castB.length,
+    b_cost: castB.reduce((s, c) => s + (Number(c.cost_usd) || 0), 0),
+    b_completed: castB.filter((c) => c.status === "completed").length,
+  };
+
   return {
     totalJobs: totalJobs ?? 0,
     completedJobs: completedJobs ?? 0,
@@ -107,6 +124,7 @@ async function getAdminData() {
     totalCost,
     avgDuration,
     agentFreq,
+    castStat,
   };
 }
 
@@ -172,6 +190,32 @@ export default async function AdminPage() {
         <StatCard
           label="평균 비용/건"
           value={`$${(data.totalCost / Math.max(1, data.recentJobs.length)).toFixed(3)}`}
+        />
+      </div>
+
+      {/* Cast 통계 (30일) */}
+      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard
+          label="Cast Mode A (batch, 30일)"
+          value={data.castStat.a_count.toString()}
+          sub={`완료 ${data.castStat.a_completed} · $${data.castStat.a_cost.toFixed(2)}`}
+        />
+        <StatCard
+          label="Cast Mode B (realtime, 30일)"
+          value={data.castStat.b_count.toString()}
+          sub={`완료 ${data.castStat.b_completed} · $${data.castStat.b_cost.toFixed(2)}`}
+        />
+        <StatCard
+          label="Cast 총 비용 (30일)"
+          value={`$${(data.castStat.a_cost + data.castStat.b_cost).toFixed(2)}`}
+        />
+        <StatCard
+          label="Cast 평균/건"
+          value={`$${
+            ((data.castStat.a_cost + data.castStat.b_cost) /
+              Math.max(1, data.castStat.a_count + data.castStat.b_count))
+              .toFixed(3)
+          }`}
         />
       </div>
 
