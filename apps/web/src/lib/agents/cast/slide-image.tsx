@@ -166,13 +166,23 @@ export async function generateSlideImage(
   const png = await renderSlideToPng(topic, slide);
   const path = `${castJobId}/slide-${String(slide.slide_number).padStart(3, "0")}.png`;
 
-  // 버킷 자동 생성 (idempotent)
-  await supabase.storage.createBucket(BUCKET, { public: true }).catch(() => {});
+  // 버킷 생성 시도 (idempotent). 운영 환경은 0025 마이그레이션으로 사전 생성됨.
+  // "already exists"만 무시하고 그 외 실패는 로그 — 무조건 catch로 삼키지 않음.
+  const createRes = await supabase.storage
+    .createBucket(BUCKET, { public: true })
+    .then(() => ({ ok: true as const, err: undefined }))
+    .catch((e: unknown) => ({ ok: false as const, err: e instanceof Error ? e.message : String(e) }));
+  if (!createRes.ok && createRes.err && !/already exists|duplicate/i.test(createRes.err)) {
+    console.warn(`[slide-image] bucket create failed (continuing to upload): ${createRes.err}`);
+  }
 
   const { error: upErr } = await supabase.storage
     .from(BUCKET)
     .upload(path, png, { contentType: "image/png", upsert: true });
-  if (upErr) throw new Error(`slide image upload failed: ${upErr.message}`);
+  if (upErr) {
+    console.error(`[slide-image] upload failed slide ${slide.slide_number} → ${BUCKET}/${path}: ${upErr.message}`);
+    throw new Error(`slide image upload failed: ${upErr.message}`);
+  }
 
   const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return { slide_number: slide.slide_number, url: pub.publicUrl, path };
