@@ -133,8 +133,8 @@ function SlideJsx(props: { topic: string; slide: SlideInputMeta }) {
           color: "#64748b",
         }}
       >
-        <div>슬라이드 {slide.slide_number}</div>
-        <div>KEG AI Studio</div>
+        <div style={{ display: "flex" }}>{`슬라이드 ${slide.slide_number}`}</div>
+        <div style={{ display: "flex" }}>KEG AI Studio</div>
       </div>
     </div>
   );
