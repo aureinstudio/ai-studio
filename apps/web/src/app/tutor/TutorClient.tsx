@@ -95,11 +95,19 @@ export function TutorClient({ courseOptions }: { courseOptions: CourseOption[] }
         body: JSON.stringify({
           question,
           studio_job_id: selectedJobId,
-          conversation_id: conversationId,
+          // null 대신 undefined 명시 (Zod .optional() 호환)
+          ...(conversationId ? { conversation_id: conversationId } : {}),
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.detail ?? data?.error ?? `HTTP ${res.status}`);
+      if (!res.ok) {
+        const issues = Array.isArray(data?.issues)
+          ? data.issues.map((i: { message: string; path?: string[] }) =>
+              `${i.path?.join(".") ?? ""}: ${i.message}`,
+            ).join(", ")
+          : null;
+        throw new Error(data?.detail ?? issues ?? data?.message ?? data?.error ?? `HTTP ${res.status}`);
+      }
 
       setMessages((prev) => [
         ...prev,

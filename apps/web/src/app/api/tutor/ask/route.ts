@@ -16,7 +16,8 @@ export const maxDuration = 60;
 const requestSchema = z.object({
   question: z.string().min(2).max(500),
   studio_job_id: z.string().uuid(),
-  conversation_id: z.string().uuid().optional(),
+  // null·undefined 둘 다 허용 (client가 null 보낼 수 있음)
+  conversation_id: z.string().uuid().nullable().optional(),
 });
 
 const BLOCKED_RESPONSE =
