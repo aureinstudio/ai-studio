@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
+import { PrintButton } from "./print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -98,11 +99,28 @@ export default async function RunbookPage({
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
+      {/* 인쇄용 print CSS — 사이드바 숨김, A4 페이지, 링크 색 보존 */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          aside { display: none !important; }
+          .no-print { display: none !important; }
+          body { background: white !important; }
+          .grid { display: block !important; }
+          a { color: #1e40af !important; text-decoration: underline !important; }
+          h1 { font-size: 22px !important; margin-top: 8mm !important; }
+          h2 { font-size: 16px !important; page-break-after: avoid; }
+          h3 { font-size: 14px !important; page-break-after: avoid; }
+          table, pre, ul { page-break-inside: avoid; }
+        }
+        @page { size: A4; margin: 16mm; }
+      `}} />
+
       {/* 사이드바 */}
       <aside className="space-y-3">
         <Link href="/admin" className="text-xs text-muted-foreground hover:underline">← 관리자 홈</Link>
         <h1 className="text-xl font-bold">운영 매뉴얼</h1>
         <p className="text-xs text-muted-foreground">자가 학습용 — 본부장 직접 처리 비율 ↓ 목표</p>
+        {selected && <PrintButton />}
         <nav className="space-y-1 mt-4">
           {DOCS.map((d) => (
             <Link

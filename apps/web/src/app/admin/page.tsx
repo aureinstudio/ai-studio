@@ -211,6 +211,9 @@ export default async function AdminPage() {
             { href: "/admin/executive", label: "경영 대시보드", desc: "CEO 뷰 (비기술)" },
             { href: "/admin/courses-overview", label: "과정 카테고리 통합", desc: "5 카테고리별 성과·비용 (Phase 3)" },
             { href: "/admin/users", label: "사용자 역할 관리", desc: "admin·운영팀·강사·SME 권한 부여" },
+            { href: "/admin/founder-dependency", label: "본부장 의존도", desc: "위임 비율 추적 (W12)" },
+            { href: "/admin/department-insights", label: "부서별 인사이트", desc: "KEG 6 본부 활용 매핑" },
+            { href: "/admin/training-program", label: "전사 교육 프로그램", desc: "5 직책별 모듈" },
           ]}
         />
         <AdminNavSection
