@@ -58,6 +58,10 @@ export async function GET(_request: NextRequest) {
     { name: "role 6종 (W10)", migration: "0027", table: "profiles", column: "role" },
     { name: "student_enrollments (W11)", migration: "0028", table: "student_enrollments" },
     { name: "nps_responses.studio_job_id (W11)", migration: "0028", table: "nps_responses", column: "studio_job_id" },
+    { name: "governance_reports (W12)", migration: "0029", table: "governance_reports" },
+    { name: "team_activity_log (W12)", migration: "0029", table: "team_activity_log" },
+    { name: "api_keys (v0.40)", migration: "0030", table: "api_keys", column: "key_prefix" },
+    { name: "api_key_usage (v0.40)", migration: "0030", table: "api_key_usage" },
   ];
 
   // 각 체크 — 1 row select로 존재 확인. 컬럼이 명시되면 그 컬럼도 select.

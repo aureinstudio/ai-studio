@@ -12,8 +12,9 @@
  * 위·변조 시 null 반환. service_role를 누설하지 않음(서버 내부 호출).
  */
 import { createAdminClient } from "./admin";
+import { resolveApiKey, API_KEY_PREFIX } from "@/lib/auth/api-key";
 
-export type AuthedUser = { id: string; email?: string };
+export type AuthedUser = { id: string; email?: string; api_key_id?: string };
 
 /**
  * cookie → Bearer 순서로 사용자 인증 시도.
@@ -29,6 +30,14 @@ export async function resolveUser(
   const token = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return null;
 
+  // API 키 우선 시도 (ak_live_*)
+  if (token.startsWith(API_KEY_PREFIX)) {
+    const apiKeyAuth = await resolveApiKey(token);
+    if (!apiKeyAuth) return null;
+    return { id: apiKeyAuth.user.id, email: apiKeyAuth.user.email, api_key_id: apiKeyAuth.key.id };
+  }
+
+  // Supabase JWT fallback
   const admin = createAdminClient();
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) return null;
