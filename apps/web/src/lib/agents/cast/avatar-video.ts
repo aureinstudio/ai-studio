@@ -28,9 +28,9 @@ export async function submitHeyGenVideo(
   const apiKey = process.env.HEYGEN_API_KEY;
   if (!apiKey) throw new Error("HEYGEN_API_KEY not configured");
 
-  // PIP 레이아웃 — 우하단 배치.
-  // scale 0.3 / offset 0.32 = 안전 마진 충분히 확보 (실측 0.55는 화면 밖 절단).
-  // HeyGen 좌표계: offset 0=중심, 양수=오른쪽/아래 (단위 모호 — 실험적으로 0.3 안전).
+  // PIP 레이아웃 — 우하단 원형 마스킹 + 스튜디오 배경 제거.
+  // matting: true → HeyGen이 아바타의 스튜디오 배경을 제거 (사람만 남김).
+  // avatar_style "circle" + matting 병행해야 진짜 원형 PIP 효과.
   const character =
     avatarType === "talking_photo"
       ? {
@@ -38,6 +38,7 @@ export async function submitHeyGenVideo(
           talking_photo_id: avatarId,
           scale: 0.3,
           offset: { x: 0.32, y: 0.32 },
+          matting: true,
         }
       : {
           type: "avatar" as const,
@@ -45,6 +46,7 @@ export async function submitHeyGenVideo(
           avatar_style: "circle" as const,
           scale: 0.3,
           offset: { x: 0.32, y: 0.32 },
+          matting: true,
         };
 
   const video_inputs = scenes
@@ -186,7 +188,7 @@ export async function runCastAvatarVideo(
   }
 
   try {
-    // PIP 레이아웃 — 우하단 원형 아바타. scale 0.3 / offset 0.32 (안전 마진).
+    // PIP 레이아웃 — 우하단 원형 마스킹 + matting (배경 제거).
     const character =
       avatarType === "talking_photo"
         ? {
@@ -194,6 +196,7 @@ export async function runCastAvatarVideo(
             talking_photo_id: avatarId,
             scale: 0.3,
             offset: { x: 0.32, y: 0.32 },
+            matting: true,
           }
         : {
             type: "avatar" as const,
@@ -201,6 +204,7 @@ export async function runCastAvatarVideo(
             avatar_style: "circle" as const,
             scale: 0.3,
             offset: { x: 0.32, y: 0.32 },
+            matting: true,
           };
 
     // 1. video_inputs — 슬라이드별 scene 빌드
