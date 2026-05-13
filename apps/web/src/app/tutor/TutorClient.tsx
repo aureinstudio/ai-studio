@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { TutorProgress } from "@/components/TutorProgress";
 
 type CourseOption = {
   id: string;
@@ -268,6 +269,7 @@ export function TutorClient({ courseOptions }: { courseOptions: CourseOption[] }
               {messages.map((msg, i) => (
                 <MessageBubble key={i} message={msg} />
               ))}
+              {sending && <TutorProgress />}
               <div ref={messagesEndRef} />
             </div>
 
