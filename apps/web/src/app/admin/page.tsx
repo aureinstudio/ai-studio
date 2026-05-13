@@ -246,6 +246,8 @@ export default async function AdminPage() {
           title="자료"
           items={[
             { href: "/admin/runbook", label: "운영 매뉴얼", desc: "7개 셀프 서비스 문서 (W10)" },
+            { href: "/admin/instructor-incentives", label: "강사 인센티브", desc: "월간 자동 계산 + 확정 (W13)" },
+            { href: "/admin/proposals", label: "콘텐츠 제안 검토", desc: "강사 제안 SME 검토 큐 (W13)" },
             { href: "/admin/api-keys", label: "API 키 관리", desc: "B2B 고객사 키 발급·취소 (v0.40)" },
             { href: "/admin/data-export", label: "데이터 내보내기", desc: "CSV·JSON (PII 해싱)" },
             { href: "/docs/api", label: "API 공개 문서", desc: "외부 통합 가이드" },

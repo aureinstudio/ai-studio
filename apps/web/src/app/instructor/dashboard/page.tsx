@@ -59,6 +59,25 @@ export default async function InstructorDashboardPage() {
     .eq("week_iso", week)
     .maybeSingle();
 
+  // W13 — 본인 KPI / 인센티브
+  const period = new Date().toISOString().slice(0, 7);
+  const [{ data: myIncentives }, { data: myNps }, { data: trainingProg }, { count: myProposals }] = await Promise.all([
+    admin
+      .from("instructor_incentives")
+      .select("tier, amount_krw, bonus_percent, reason, period")
+      .eq("instructor_id", user.id)
+      .order("period", { ascending: false })
+      .limit(6),
+    admin.from("instructor_nps").select("efficiency_score, value_elevation_score, recommend_score, period").eq("instructor_id", user.id).eq("period", period).maybeSingle(),
+    admin.from("instructor_training_progress").select("module_key").eq("instructor_id", user.id),
+    admin.from("instructor_content_proposals").select("id", { count: "exact", head: true }).eq("instructor_id", user.id).eq("status", "approved"),
+  ]);
+
+  const trainingDone = (trainingProg ?? []).length;
+  const trainingTotal = 5;
+  const thisMonthIncentives = (myIncentives ?? []).filter((i) => i.period === period);
+  const thisMonthAmount = thisMonthIncentives.reduce((s, i) => s + (i.amount_krw ?? 0), 0);
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-6">
       <header className="flex items-center justify-between">
@@ -68,13 +87,53 @@ export default async function InstructorDashboardPage() {
             {profile?.name ?? "강사"}님 · 담당 학생 모니터링 + 콘텐츠 검토
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/instructor/weekly-report" className="px-3 py-1.5 text-sm rounded bg-foreground text-background">
-            📝 주간 보고
-          </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/instructor/weekly-report" className="px-3 py-1.5 text-sm rounded bg-foreground text-background">📝 주간 보고</Link>
+          <Link href="/instructor/proposals" className="px-3 py-1.5 text-sm rounded border hover:bg-muted">💡 콘텐츠 제안</Link>
+          <Link href="/instructor/training" className="px-3 py-1.5 text-sm rounded border hover:bg-muted">🎓 교육</Link>
+          <Link href="/instructors/community" className="px-3 py-1.5 text-sm rounded border hover:bg-muted">💬 커뮤니티</Link>
+          <Link href="/instructor/nps" className="px-3 py-1.5 text-sm rounded border hover:bg-muted">📊 월간 NPS</Link>
           <Link href="/admin/runbook" className="px-3 py-1.5 text-sm rounded border hover:bg-muted">📚 매뉴얼</Link>
         </div>
       </header>
+
+      {/* W13 KPI 위젯 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs uppercase text-muted-foreground">이번 달 인센티브</div>
+            <div className="mt-1 text-2xl font-bold">₩{thisMonthAmount.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground">
+              {thisMonthIncentives.map((i) => i.tier).join(" + ") || "미확정"}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs uppercase text-muted-foreground">채택된 콘텐츠 제안</div>
+            <div className="mt-1 text-2xl font-bold">{myProposals ?? 0}건</div>
+            <Link href="/instructor/proposals" className="text-xs text-blue-600 hover:underline">새 제안 →</Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs uppercase text-muted-foreground">교육 진척</div>
+            <div className="mt-1 text-2xl font-bold">{trainingDone}/{trainingTotal}</div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full bg-emerald-500" style={{ width: `${(trainingDone / trainingTotal) * 100}%` }} />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={myNps ? "" : "border-amber-300 bg-amber-50/30"}>
+          <CardContent className="p-4">
+            <div className="text-xs uppercase text-muted-foreground">{period} 본인 NPS</div>
+            <div className={`mt-1 text-2xl font-bold ${myNps ? "text-emerald-600" : "text-amber-600"}`}>
+              {myNps ? `${myNps.recommend_score}/10` : "미응답"}
+            </div>
+            {!myNps && <Link href="/instructor/nps" className="text-xs text-blue-600 hover:underline">지금 작성 →</Link>}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* 빠른 액션 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
