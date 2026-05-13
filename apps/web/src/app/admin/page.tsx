@@ -209,6 +209,7 @@ export default async function AdminPage() {
             { href: "/admin/security", label: "보안 감사", desc: "차단·rate limit·audit_log" },
             { href: "/admin/integration", label: "통합 분석", desc: "비용·agent 분포" },
             { href: "/admin/executive", label: "경영 대시보드", desc: "CEO 뷰 (비기술)" },
+            { href: "/admin/courses-overview", label: "과정 카테고리 통합", desc: "5 카테고리별 성과·비용 (Phase 3)" },
           ]}
         />
         <AdminNavSection

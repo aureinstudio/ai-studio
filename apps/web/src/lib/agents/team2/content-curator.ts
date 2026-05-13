@@ -1,4 +1,5 @@
 import { Agent, parseJsonSafely } from "../base";
+import { getAdapter } from "../studio/adapters";
 import type { AnalysisOutput } from "../team1-planning/comprehensive-analysis";
 import type { EnvironmentResearchOutput } from "../team1-planning/environment-research";
 import type { TopicResearchOutput } from "../team1-planning/topic-research";
@@ -15,6 +16,8 @@ export type CuratorInput = {
   topic: string;
   level: "beginner" | "intermediate" | "advanced";
   length: "short" | "medium" | "long";
+  /** Phase 3 — 과정 카테고리 (certification|professional|language|hobby|academic). */
+  course_category?: "certification" | "professional" | "language" | "hobby" | "academic";
   /** TEAM 1 (Agent #01~#04) 산출물. v0.9.0+ 필수. 미제공 시 v0.6 fallback */
   planning?: PlanningContext;
 };
@@ -49,11 +52,15 @@ export class ContentCurator extends Agent<CuratorInput, CuratorOutput> {
   readonly role = "챕터 본문 작성 (TEAM1 outline 기반)";
 
   protected buildSystemPrompt(input: CuratorInput): string {
+    // 과정 카테고리별 어댑터 guidance 주입 (Phase 3)
+    const adapterBlock = input.course_category
+      ? `\n\n${getAdapter(input.course_category).studio_guidance}\n`
+      : "";
     const base = `당신은 KEG 콘텐츠 큐레이터 에이전트입니다.
 역할: 챕터 본문을 학습자 수준에 맞춰 작성합니다.
 
 주제: ${input.topic}
-대상: ${LEVEL_LABEL[input.level]} 수준
+대상: ${LEVEL_LABEL[input.level]} 수준${adapterBlock}
 
 다음 JSON 구조로만 출력하세요. 마크다운 fence 금지:
 {

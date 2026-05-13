@@ -107,6 +107,9 @@ export default function StudioPage() {
   const [level, setLevel] = useState<Level>("beginner");
   const [length, setLength] = useState<Length>("short");
   const [model, setModel] = useState<ModelId>("claude-sonnet-4-5");
+  const [courseCategory, setCourseCategory] = useState<
+    "certification" | "professional" | "language" | "hobby" | "academic"
+  >("certification");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<StudioJob | null>(null);
@@ -156,7 +159,7 @@ export default function StudioPage() {
       const res = await fetch("/api/studio/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, level, length, model }),
+        body: JSON.stringify({ topic, level, length, model, course_category: courseCategory }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -226,6 +229,38 @@ export default function StudioPage() {
                 disabled={submitting || inProgress}
                 maxLength={200}
               />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                과정 카테고리
+              </label>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                {[
+                  { v: "certification", l: "자격증", e: "조리, IT 등" },
+                  { v: "professional", l: "직무", e: "포토샵, 엑셀" },
+                  { v: "language", l: "언어", e: "토익, 일본어" },
+                  { v: "hobby", l: "취미", e: "요리, 사진" },
+                  { v: "academic", l: "학술", e: "수능, 고등" },
+                ].map((c) => (
+                  <button
+                    key={c.v}
+                    type="button"
+                    disabled={submitting || inProgress}
+                    onClick={() => setCourseCategory(c.v as typeof courseCategory)}
+                    className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition-colors ${
+                      courseCategory === c.v
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border bg-transparent text-foreground hover:bg-card"
+                    } disabled:opacity-50`}
+                  >
+                    <span className="text-sm font-medium">{c.l}</span>
+                    <span className={`text-[10px] ${courseCategory === c.v ? "text-background/70" : "text-muted-foreground"}`}>
+                      {c.e}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div>

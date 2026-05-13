@@ -20,6 +20,10 @@ const requestSchema = z.object({
   level: z.enum(["beginner", "intermediate", "advanced"]),
   length: z.enum(["short", "medium", "long"]),
   model: z.enum(ALLOWED_MODELS).default("claude-sonnet-4-5"),
+  // Phase 3 — 과정 카테고리. 미지정 시 'certification' (자격증, 기존 동작).
+  course_category: z
+    .enum(["certification", "professional", "language", "hobby", "academic"])
+    .default("certification"),
 });
 
 export async function POST(request: NextRequest) {
@@ -119,6 +123,7 @@ export async function POST(request: NextRequest) {
       level: parsed.data.level,
       length: parsed.data.length,
       model: parsed.data.model,
+      course_category: parsed.data.course_category,
       status: "pending",
       agent_logs: [],
     })
