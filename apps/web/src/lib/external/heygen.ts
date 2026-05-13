@@ -124,8 +124,18 @@ export async function pollVideoStatus(videoId: string): Promise<VideoStatus> {
 
 /**
  * 영상 길이 기반 비용 계산.
- * HeyGen Creator: ~$30/월 = ~60분, 분당 $0.50 추정.
+ *
+ * 플랜에 따라 분당 단가가 크게 다름:
+ *   Pay-as-you-go (API standard) — $2.00~$6.00/분
+ *   Creator $24/월 + 초과분        — ~$2.00/분 (실측)
+ *   Team $79/월                    — ~$0.50/분
+ *   Enterprise                     — 협상가 $0.10~$0.30/분
+ *
+ * 본부장 환경 단가를 HEYGEN_USD_PER_MINUTE 환경변수로 override 가능 (기본 2.0).
+ * 부정확한 비용 추적은 cost-guard 자동 차단을 무력화 → 정확한 단가 입력 필수.
  */
 export function calculateVideoCost(durationSeconds: number): number {
-  return Math.round((durationSeconds / 60) * 0.5 * 1_000_000) / 1_000_000;
+  const usdPerMinute = Number(process.env.HEYGEN_USD_PER_MINUTE ?? "2.0");
+  const cost = (durationSeconds / 60) * usdPerMinute;
+  return Math.round(cost * 1_000_000) / 1_000_000;
 }

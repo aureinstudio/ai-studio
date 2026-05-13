@@ -260,12 +260,15 @@ export async function POST(request: NextRequest) {
         avatarType = "avatar";
       }
 
-      // HeyGen webhook URL — 영상 완료 알림 받을 자체 엔드포인트
+      // HeyGen webhook URL — 영상 완료 알림 받을 자체 엔드포인트.
+      // 우선순위: NEXT_PUBLIC_BASE_URL (가장 신뢰) → x-forwarded-host → host 헤더.
+      // 이전 코드는 ternary 우선순위 버그로 null/잘못된 호스트를 보내 webhook을 영영
+      // 못 받아 cost_usd/duration_seconds 0으로 남는 케이스 발생.
+      const xfHost = request.headers.get("x-forwarded-host");
+      const host = request.headers.get("host");
       const origin =
-        request.headers.get("origin") ??
-        request.headers.get("x-forwarded-host")
-          ? `https://${request.headers.get("x-forwarded-host")}`
-          : `https://${request.headers.get("host") ?? "ai-studio-drab-nine.vercel.app"}`;
+        process.env.NEXT_PUBLIC_BASE_URL ??
+        (xfHost ? `https://${xfHost}` : `https://${host ?? "ai-studio-drab-nine.vercel.app"}`);
       const webhookUrl = `${origin}/api/cast/webhooks/heygen`;
 
       await runCastFullChain(

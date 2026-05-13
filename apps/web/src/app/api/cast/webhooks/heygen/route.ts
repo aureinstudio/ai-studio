@@ -74,7 +74,25 @@ export async function POST(request: NextRequest) {
 
   if (isSuccess) {
     const videoUrl = event.event_data?.url ?? "";
-    const durationSec = event.event_data?.duration ?? 0;
+    let durationSec = event.event_data?.duration ?? 0;
+
+    // HeyGen이 duration 안 보내는 경우 대비: status API에서 직접 조회.
+    // 이거 빠지면 cost_usd=0 (4a61d71e 같은 케이스).
+    if ((!durationSec || durationSec === 0) && videoId && process.env.HEYGEN_API_KEY) {
+      try {
+        const statusRes = await fetch(
+          `https://api.heygen.com/v1/video_status.get?video_id=${encodeURIComponent(videoId)}`,
+          { headers: { "X-Api-Key": process.env.HEYGEN_API_KEY } },
+        );
+        if (statusRes.ok) {
+          const j = (await statusRes.json()) as { data?: { duration?: number } };
+          if (j.data?.duration) durationSec = j.data.duration;
+        }
+      } catch (err) {
+        console.warn("[heygen webhook] status fetch failed (continuing with 0):", err);
+      }
+    }
+
     const costUsd = calculateVideoCost(durationSec);
 
     // agent_logs의 cast-04 항목을 'completed'로 업데이트
@@ -113,6 +131,7 @@ export async function POST(request: NextRequest) {
         video_url: videoUrl,
         agent_logs: updatedLogs,
         cost_usd: totalCost,
+        duration_seconds: durationSec,
         completed_at: new Date().toISOString(),
       })
       .eq("id", job.id);
