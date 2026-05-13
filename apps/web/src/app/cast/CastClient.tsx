@@ -170,7 +170,7 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
         setEstimateLoading(false);
       }
     })();
-  }, [selectedId]);
+  }, [selectedId, testMode]);
 
   // Polling
   useEffect(() => {
