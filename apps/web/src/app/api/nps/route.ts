@@ -11,6 +11,8 @@ const schema = z.object({
   score: z.number().int().min(0).max(10),
   reason: z.string().max(1000).nullable().optional(),
   segment: z.enum(["ko", "multilingual"]).default("ko"),
+  // Phase 3 W11 — 과정별 NPS (선택). 미지정 시 overall NPS.
+  studio_job_id: z.string().uuid().nullable().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -32,6 +34,7 @@ export async function POST(request: NextRequest) {
     score: parsed.data.score,
     reason: parsed.data.reason ?? null,
     segment: parsed.data.segment,
+    studio_job_id: parsed.data.studio_job_id ?? null,
   });
   if (error) {
     if (error.code === "23505") {

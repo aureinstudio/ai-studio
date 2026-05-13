@@ -100,16 +100,45 @@ async function getDashboardData() {
     .order("created_at", { ascending: false })
     .limit(5);
 
+  // 수강 중인 과정 (W11)
+  const { data: enrollmentRows } = await supabase
+    .from("student_enrollments")
+    .select("id, studio_job_id, status, enrolled_at, studio_jobs!inner(topic, course_category)")
+    .eq("student_id", user.id)
+    .eq("status", "active")
+    .order("enrolled_at", { ascending: false })
+    .limit(10);
+  type ER = {
+    id: string;
+    studio_job_id: string;
+    status: string;
+    enrolled_at: string;
+    studio_jobs?: { topic: string; course_category: string } | { topic: string; course_category: string }[] | null;
+  };
+  const enrollments = (enrollmentRows ?? []).map((r) => {
+    const row = r as unknown as ER;
+    const job = Array.isArray(row.studio_jobs) ? row.studio_jobs[0] : row.studio_jobs;
+    return {
+      id: row.id,
+      studio_job_id: row.studio_job_id,
+      topic: job?.topic ?? "(주제 미상)",
+      course_category: job?.course_category ?? "certification",
+      enrolled_at: row.enrolled_at,
+    };
+  });
+
   return {
     profile: safeProfile,
     stats,
     recent: (recent ?? []) as RecentJob[],
+    enrollments,
   };
 }
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
   if (!data) redirect("/login");
+  const { enrollments } = data;
 
   const { profile, stats, recent } = data;
   const greeting = profile.name ?? profile.email.split("@")[0];
@@ -343,6 +372,48 @@ export default async function DashboardPage() {
           )}
         </div>
       )}
+
+      {/* 수강 중인 과정 (W11 multi-course) */}
+      <div className="mt-10">
+        <div className="mb-4 flex items-baseline justify-between">
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            수강 중인 과정 ({enrollments.length})
+          </p>
+          <Link
+            href="/courses"
+            className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            + 과정 추가
+          </Link>
+        </div>
+        {enrollments.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border bg-card/30 p-6 text-center text-sm text-muted-foreground">
+            아직 수강 중인 과정이 없습니다.{" "}
+            <Link href="/courses" className="text-foreground underline-offset-4 hover:underline">
+              카탈로그에서 수강 신청
+            </Link>
+            을 시작하세요.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            {enrollments.map((e) => (
+              <Link
+                key={e.id}
+                href={`/tutor?studio_job_id=${e.studio_job_id}`}
+                className="rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:bg-card hover:border-foreground/30"
+              >
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {e.course_category}
+                </div>
+                <div className="mt-1 text-sm font-medium leading-tight">{e.topic}</div>
+                <div className="mt-2 text-[10px] text-muted-foreground">
+                  등록 {new Date(e.enrolled_at).toLocaleDateString()} · Tutor →
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 최근 작업 목록 */}
       {recent.length > 0 && (

@@ -5,6 +5,7 @@ import { ThemeToggle } from "./ThemeToggle";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "대시보드" },
+  { href: "/courses", label: "과정" },
   { href: "/studio", label: "Studio" },
   { href: "/cast", label: "Cast" },
   { href: "/tutor", label: "Tutor" },
