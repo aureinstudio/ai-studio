@@ -26,24 +26,25 @@ export async function submitHeyGenVideo(
   const apiKey = process.env.HEYGEN_API_KEY;
   if (!apiKey) throw new Error("HEYGEN_API_KEY not configured");
 
-  // PIP 레이아웃 — 우하단 원형 마스킹 + 스튜디오 배경 제거.
+  // PIP 레이아웃 — 우하단 끝에 붙임 + 원형 마스킹 + 스튜디오 배경 제거.
+  // offset (0.35, 0.45): 우하단 코너에 거의 flush — 어두운 슬라이드 배경과 자연스럽게 어우러짐.
   // matting: true → HeyGen이 아바타의 스튜디오 배경을 제거 (사람만 남김).
-  // avatar_style "circle" + matting 병행해야 진짜 원형 PIP 효과.
+  // avatar_style "circle" → 원형 마스킹.
   const character =
     avatarType === "talking_photo"
       ? {
           type: "talking_photo" as const,
           talking_photo_id: avatarId,
-          scale: 0.3,
-          offset: { x: 0.32, y: 0.32 },
+          scale: 0.32,
+          offset: { x: 0.35, y: 0.45 },
           matting: true,
         }
       : {
           type: "avatar" as const,
           avatar_id: avatarId,
           avatar_style: "circle" as const,
-          scale: 0.3,
-          offset: { x: 0.32, y: 0.32 },
+          scale: 0.32,
+          offset: { x: 0.35, y: 0.45 },
           matting: true,
         };
 
