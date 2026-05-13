@@ -61,11 +61,13 @@ export async function runCastFullChain(
   let chainStep = 0;
 
   const persistLogs = async () => {
-    await supabase.from("cast_jobs").update({ agent_logs }).eq("id", castJobId);
+    const { error } = await supabase.from("cast_jobs").update({ agent_logs }).eq("id", castJobId);
+    if (error) console.error(`[cast/orchestrator] persistLogs failed [${error.code}]: ${error.message}`);
   };
 
   const persistJobField = async (updates: Record<string, unknown>) => {
-    await supabase.from("cast_jobs").update(updates).eq("id", castJobId);
+    const { error } = await supabase.from("cast_jobs").update(updates).eq("id", castJobId);
+    if (error) console.error(`[cast/orchestrator] persistJobField failed [${error.code}]: ${error.message} · keys=${Object.keys(updates).join(",")}`);
   };
 
   // LLM 에이전트용 (#01, #02) - Studio와 동일 패턴
