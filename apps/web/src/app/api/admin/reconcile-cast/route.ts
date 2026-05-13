@@ -59,14 +59,18 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   const { data: job } = await admin
     .from("cast_jobs")
-    .select("id, user_id, status, heygen_video_id, cost_usd, agent_logs")
+    .select("id, user_id, status, heygen_video_id, cost_usd, agent_logs, video_url")
     .eq("id", jobId)
     .maybeSingle();
   if (!job) return NextResponse.json({ error: "job_not_found" }, { status: 404 });
   if (!job.heygen_video_id) {
     return NextResponse.json({ error: "no_heygen_video_id" }, { status: 400 });
   }
-  if (job.status === "completed" || job.status === "failed") {
+  // status='completed'이지만 video_url 비어있으면 이전 실패 복구 대상 — 강제 재처리.
+  if (
+    (job.status === "completed" || job.status === "failed") &&
+    job.video_url
+  ) {
     return NextResponse.json({ ok: true, status: "already_terminal", current: job.status });
   }
 
@@ -93,8 +97,10 @@ export async function POST(request: NextRequest) {
 
   if (hgStatus === "completed") {
     const videoUrl = j.data?.video_url ?? "";
-    const durationSec = j.data?.duration ?? 0;
-    const costUsd = calculateVideoCost(durationSec);
+    const durationRaw = j.data?.duration ?? 0;
+    // duration_seconds 컬럼은 INT4 — float 보내면 Postgres가 silently reject.
+    const durationSec = Math.round(durationRaw);
+    const costUsd = calculateVideoCost(durationRaw); // 비용은 정밀도 유지
 
     const logs = (job.agent_logs ?? []) as AgentLog[];
     const updatedLogs = logs.map((log) => {
@@ -113,7 +119,7 @@ export async function POST(request: NextRequest) {
     });
 
     const totalCost = (Number(job.cost_usd) || 0) + costUsd;
-    await admin
+    const { error: upErr } = await admin
       .from("cast_jobs")
       .update({
         status: "completed",
@@ -124,6 +130,12 @@ export async function POST(request: NextRequest) {
         completed_at: new Date().toISOString(),
       })
       .eq("id", job.id);
+    if (upErr) {
+      return NextResponse.json(
+        { error: "update_failed", detail: upErr.message },
+        { status: 500 },
+      );
+    }
 
     await logCost({
       supabase: admin,

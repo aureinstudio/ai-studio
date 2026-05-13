@@ -101,6 +101,8 @@ export async function POST(request: NextRequest) {
     }
 
     const costUsd = calculateVideoCost(durationSec);
+    // duration_seconds 컬럼이 INT4 — float 보내면 silently reject되어 cost·duration 영영 0.
+    const durationInt = Math.round(durationSec);
 
     // agent_logs의 cast-04 항목을 'completed'로 업데이트
     type AgentLog = {
@@ -131,17 +133,22 @@ export async function POST(request: NextRequest) {
 
     const totalCost = (Number(job.cost_usd) || 0) + costUsd;
 
-    await admin
+    const { error: upErr } = await admin
       .from("cast_jobs")
       .update({
         status: "completed",
         video_url: videoUrl,
         agent_logs: updatedLogs,
         cost_usd: totalCost,
-        duration_seconds: durationSec,
+        duration_seconds: durationInt,
         completed_at: new Date().toISOString(),
       })
       .eq("id", job.id);
+    if (upErr) {
+      console.error(`[heygen webhook] update failed for ${job.id}: ${upErr.message}`);
+      // 200 반환 — HeyGen 재시도해도 동일 문제 반복 (자동 retry 의미 없음)
+      return NextResponse.json({ status: "update_failed", detail: upErr.message });
+    }
 
     // cost_log 업데이트
     await logCost({
