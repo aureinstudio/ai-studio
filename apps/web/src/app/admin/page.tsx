@@ -241,6 +241,7 @@ export default async function AdminPage() {
         <AdminNavSection
           title="자료"
           items={[
+            { href: "/admin/runbook", label: "운영 매뉴얼", desc: "7개 셀프 서비스 문서 (W10)" },
             { href: "/admin/data-export", label: "데이터 내보내기", desc: "CSV·JSON (PII 해싱)" },
             { href: "/api/admin/g2-final-report", label: "Final Report JSON", desc: "API 직접 호출" },
             { href: "/api/health", label: "헬스 체크 JSON", desc: "UptimeRobot 등록용" },

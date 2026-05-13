@@ -14,7 +14,8 @@ const NAV_ITEMS = [
 const ROLE_LINK: Record<string, { href: string; label: string }> = {
   admin: { href: "/admin", label: "관리자" },
   sme: { href: "/sme/dashboard", label: "SME" },
-  instructor: { href: "/instructor/weekly-report", label: "강사" },
+  instructor: { href: "/instructor/dashboard", label: "강사" },
+  operations: { href: "/operations/dashboard", label: "운영팀" },
 };
 
 export async function Header() {
