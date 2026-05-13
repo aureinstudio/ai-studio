@@ -72,6 +72,13 @@ export async function POST(request: NextRequest) {
   const isSuccess = event.event_type === "avatar_video.success";
   const isFail = event.event_type === "avatar_video.fail";
 
+  // Idempotency: HeyGen은 200 응답 실패 시 webhook을 최대 3회 재시도.
+  // 이미 'completed' 또는 'failed'로 처리된 job은 다시 누적하지 않음 (cost_usd 중복 방지).
+  if (job.status === "completed" || job.status === "failed") {
+    console.log(`[heygen webhook] cast_job ${job.id} already in terminal state (${job.status}) — skipping duplicate event`);
+    return NextResponse.json({ status: "ignored", reason: "already_terminal", cast_job_id: job.id });
+  }
+
   if (isSuccess) {
     const videoUrl = event.event_data?.url ?? "";
     let durationSec = event.event_data?.duration ?? 0;
