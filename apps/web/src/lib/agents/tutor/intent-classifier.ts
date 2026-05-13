@@ -10,6 +10,7 @@ export type IntentType =
 
 export type IntentClassifierInput = {
   question: string;
+  course_topic: string;
   conversation_summary?: string;
 };
 
@@ -62,7 +63,14 @@ intent 정의:
 - exam_prep: 시험 대비·기출 패턴 질문
 - feedback_request: 본인 답안·풀이에 대한 피드백 요청
 - personal_emotion: 학습 좌절·동기·정서 — 강사 핸드오프 권장
-- off_topic: 교재와 무관 (정중 거절, RAG 스킵)
+- off_topic: 교재와 명확히 무관한 경우만 (정치·스포츠·연예 등). 정중 거절, RAG 스킵.
+
+⚠️ off_topic 판정은 매우 보수적으로:
+- 과정 주제와 조금이라도 관련되면 concept_question으로 분류
+- 모호하거나 일반적인 질문도 과정 맥락에서 답변 가능하면 concept_question
+- 예: 한식 양념 과정 → "기초 양념은 뭐가 있어요?" "발효란?" "왜 짠가?" → 모두 concept_question
+- 예: 한식 양념 과정 → "오늘 날씨 어때요?" "주식 추천?" → off_topic
+- 학생이 막연하게 물어도 강사가 답할 만한 질문이면 RAG로 넘김
 
 complexity:
 - simple: 1~2문장으로 답할 수 있음 (정의, 단순 사실)
@@ -87,10 +95,12 @@ context_needed: 답변에 필요한 추가 컨텍스트 항목 (1~3개)
   }
 
   protected buildUserMessage(input: IntentClassifierInput): string {
-    return `학생 질문: "${input.question}"
+    return `과정 주제: "${input.course_topic}"
+학생 질문: "${input.question}"
 ${input.conversation_summary ? `\n이전 대화 요약: ${input.conversation_summary}` : ""}
 
-위 질문의 의도를 분류해주세요.`;
+위 학생이 듣고 있는 과정 맥락에서 질문 의도를 분류하세요.
+조금이라도 과정과 연관되면 off_topic이 아닌 concept_question 등으로 분류합니다.`;
   }
 
   protected parseOutput(rawText: string): IntentClassifierOutput {

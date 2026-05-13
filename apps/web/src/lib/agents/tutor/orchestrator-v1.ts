@@ -79,6 +79,7 @@ export async function runTutorChain(
   const [intentResult, langResult] = await Promise.all([
     new IntentClassifier("claude-haiku-4-5").execute({
       question: input.question,
+      course_topic: input.course_topic,
     }),
     new LanguageHandler("claude-haiku-4-5").execute({
       question: input.question,
