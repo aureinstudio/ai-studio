@@ -35,14 +35,16 @@ const PROMPT_INJECTION_PATTERNS: { rx: RegExp; severity: "low" | "medium" | "hig
 ];
 
 const SYSTEM_EXTRACTION_PATTERNS: { rx: RegExp; severity: "low" | "medium" | "high" }[] = [
-  { rx: /(show|print|reveal|tell\s+me)\s+(your|the)\s+(system\s+)?(prompt|instructions)/i, severity: "high" },
+  // "show your prompt", "show me your prompt", "tell me your instructions" 등
+  { rx: /(show|print|reveal|tell|give|share)\b.{0,30}(prompt|instructions|system\s+message)/i, severity: "high" },
   { rx: /시스템\s*프롬프트(를|을)?\s*(보여|알려|출력)/i, severity: "high" },
-  { rx: /what\s+(are|were)\s+your\s+(initial\s+)?instructions/i, severity: "medium" },
+  { rx: /what\s+(are|were|is)\b.{0,30}(prompt|instructions)/i, severity: "medium" },
   { rx: /repeat\s+the\s+text\s+above/i, severity: "high" },
 ];
 
 const INFINITE_LOOP_PATTERNS: { rx: RegExp; severity: "low" | "medium" | "high" }[] = [
-  { rx: /repeat\s+(this|that|the\s+(following|word))\s+\d{3,}\s+times/i, severity: "high" },
+  // "repeat ... 1000 times", "repeat the word hello 5000 times" 등
+  { rx: /repeat\b.{0,60}\b\d{3,}\s*(times|copies|x\b)/i, severity: "high" },
   { rx: /print\s+\d{4,}\s+(copies|times)/i, severity: "high" },
   { rx: /(\b\w+\b\s+){200,}/i, severity: "medium" }, // 200+ 반복 토큰
 ];

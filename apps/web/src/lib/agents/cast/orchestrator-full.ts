@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { SlideAnalyzer, type SlideInputMeta, type SlideAnalyzerOutput } from "./slide-analyzer";
 import { ScriptWriter, type ScriptWriterOutput } from "./script-writer";
 import { runCastTTS, type TTSResult } from "./tts";
-import { runCastAvatarVideo, submitHeyGenVideo, type AvatarType, type VideoResult, type VoiceScene, type VoiceSource } from "./avatar-video";
+import { submitHeyGenVideo, type AvatarType, type VideoResult, type VoiceScene, type VoiceSource } from "./avatar-video";
 import { runCastCaptionsChapters, type CaptionsResult } from "./captions-chapters";
 import { QualityChecker, type QualityCheckerOutput } from "./quality-checker";
 import { generateAllSlideImagesDetailed } from "./slide-image";
