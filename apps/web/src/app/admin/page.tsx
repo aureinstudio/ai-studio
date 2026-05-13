@@ -210,6 +210,7 @@ export default async function AdminPage() {
             { href: "/admin/integration", label: "통합 분석", desc: "비용·agent 분포" },
             { href: "/admin/executive", label: "경영 대시보드", desc: "CEO 뷰 (비기술)" },
             { href: "/admin/courses-overview", label: "과정 카테고리 통합", desc: "5 카테고리별 성과·비용 (Phase 3)" },
+            { href: "/admin/users", label: "사용자 역할 관리", desc: "admin·운영팀·강사·SME 권한 부여" },
           ]}
         />
         <AdminNavSection
