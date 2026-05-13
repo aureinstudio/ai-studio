@@ -28,23 +28,23 @@ export async function submitHeyGenVideo(
   const apiKey = process.env.HEYGEN_API_KEY;
   if (!apiKey) throw new Error("HEYGEN_API_KEY not configured");
 
-  // PIP 레이아웃 — 우하단 배치. scale=0.45 / offset 0.55 = 화면 내부 확실히 보임.
-  // ⚠️ type 결정은 호출처가 explicit 전달. regex로 추측 금지 (avatar_id와
-  //    talking_photo_id 둘 다 32-char hex 가능 → 잘못 분류 시 HeyGen 캐릭터 silently 생략).
+  // PIP 레이아웃 — 우하단 배치.
+  // scale 0.3 / offset 0.32 = 안전 마진 충분히 확보 (실측 0.55는 화면 밖 절단).
+  // HeyGen 좌표계: offset 0=중심, 양수=오른쪽/아래 (단위 모호 — 실험적으로 0.3 안전).
   const character =
     avatarType === "talking_photo"
       ? {
           type: "talking_photo" as const,
           talking_photo_id: avatarId,
-          scale: 0.45,
-          offset: { x: 0.55, y: 0.55 },
+          scale: 0.3,
+          offset: { x: 0.32, y: 0.32 },
         }
       : {
           type: "avatar" as const,
           avatar_id: avatarId,
           avatar_style: "circle" as const,
-          scale: 0.45,
-          offset: { x: 0.55, y: 0.55 },
+          scale: 0.3,
+          offset: { x: 0.32, y: 0.32 },
         };
 
   const video_inputs = scenes
@@ -186,21 +186,21 @@ export async function runCastAvatarVideo(
   }
 
   try {
-    // PIP 레이아웃 — 우하단 원형 아바타. type은 호출처가 explicit 전달.
+    // PIP 레이아웃 — 우하단 원형 아바타. scale 0.3 / offset 0.32 (안전 마진).
     const character =
       avatarType === "talking_photo"
         ? {
             type: "talking_photo" as const,
             talking_photo_id: avatarId,
-            scale: 0.45,
-            offset: { x: 0.55, y: 0.55 },
+            scale: 0.3,
+            offset: { x: 0.32, y: 0.32 },
           }
         : {
             type: "avatar" as const,
             avatar_id: avatarId,
             avatar_style: "circle" as const,
-            scale: 0.45,
-            offset: { x: 0.55, y: 0.55 },
+            scale: 0.3,
+            offset: { x: 0.32, y: 0.32 },
           };
 
     // 1. video_inputs — 슬라이드별 scene 빌드
