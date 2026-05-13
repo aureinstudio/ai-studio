@@ -89,10 +89,14 @@ export abstract class Agent<TInput, TOutput> {
             },
           ]
         : userText;
-      const stream = anthropic.messages.stream({
+      // 일부 신규 모델(claude-opus-4-7 등)은 temperature를 deprecate 처리 → 400 에러.
+      // 모델명으로 분기. deprecate 모델은 temperature 생략 (Anthropic 기본값 사용).
+      const supportsTemperature = !/claude-opus-4-7|claude-opus-4-8|claude-sonnet-4-7/i.test(
+        this.model,
+      );
+      const streamParams: Parameters<typeof anthropic.messages.stream>[0] = {
         model: this.model,
         max_tokens: this.maxTokens,
-        temperature: this.temperature,
         system: [
           {
             type: "text" as const,
@@ -101,7 +105,11 @@ export abstract class Agent<TInput, TOutput> {
           },
         ],
         messages: [{ role: "user", content: userContent }],
-      });
+      };
+      if (supportsTemperature) {
+        streamParams.temperature = this.temperature;
+      }
+      const stream = anthropic.messages.stream(streamParams);
 
       let charsSoFar = 0;
       let lastProgressMs = 0;
