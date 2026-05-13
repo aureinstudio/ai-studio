@@ -43,10 +43,12 @@ async function reconcileOne(
   if (!job) return { action: "skipped", reason: "job_not_found" };
   if (!job.heygen_video_id) return { action: "no_heygen_video_id" };
 
-  // 이미 완전히 처리된 케이스 — 건너뜀
+  // 이미 완전히 처리된 케이스만 건너뜀: video_url + cost_usd>0 둘 다 정상이어야.
+  // cost_usd=0이면 비용 백필 필요 — 강제 재처리.
   if (
     (job.status === "completed" || job.status === "failed") &&
-    job.video_url
+    job.video_url &&
+    Number(job.cost_usd) > 0
   ) {
     return { action: "already_terminal", current: job.status };
   }
