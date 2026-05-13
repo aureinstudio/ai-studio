@@ -82,10 +82,12 @@ async function checkHeyGen(): Promise<Check> {
   const key = process.env.HEYGEN_API_KEY;
   if (!key) return { name: "heygen", status: "skip", latency_ms: 0, detail: "키 미설정" };
   const t = performance.now();
+  // HeyGen은 외부 미디어 처리 API라 평소 응답 3~6초 — 별도 8초 timeout
+  // /v1/user/remaining_quota: 가장 가벼운 인증 ping (계정 잔여 크레딧)
   try {
     const r = await withTimeout(
-      fetch("https://api.heygen.com/v2/avatars?limit=1", { headers: { "X-Api-Key": key } }),
-      TIMEOUT_MS,
+      fetch("https://api.heygen.com/v1/user/remaining_quota", { headers: { "X-Api-Key": key } }),
+      8000,
     );
     return {
       name: "heygen",
@@ -162,7 +164,11 @@ export async function GET(_request: NextRequest) {
   ]);
 
   const critical = checks.filter((c) => c.name === "supabase" || c.name === "anthropic");
-  const anyFail = checks.some((c) => c.status === "fail");
+  // HeyGen·Resend는 비동기/fail-soft → degraded 판정에서 제외 (운영팀 노이즈 감소)
+  const noisyFail = checks.some(
+    (c) => c.status === "fail" && c.name !== "heygen" && c.name !== "resend",
+  );
+  const anyFail = noisyFail;
   const criticalFail = critical.some((c) => c.status === "fail");
 
   const status: "healthy" | "degraded" | "unhealthy" = criticalFail
