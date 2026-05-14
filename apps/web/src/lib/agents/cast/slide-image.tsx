@@ -39,12 +39,22 @@ export type SlideImageResult = {
   path: string;
 };
 
+type SlideWithOptionalVisual = SlideInputMeta & {
+  visual_url?: string;
+  visual_alt?: string;
+  visual_credit?: string;
+  visual_type?: "photo" | "concept" | "none";
+};
+
 /**
- * 슬라이드 JSX — 1920×1080. 좌측 컨텐츠 영역, 우하단 480×480 영역은 아바타용 공백.
+ * 슬라이드 JSX — 1920×1080. 좌측 컨텐츠 + (옵션) 우상단 비주얼 이미지.
+ * visual_url이 있으면 우상단에 720×480 이미지 렌더 (우하단 480 PIP는 그대로 회피).
  */
-function SlideJsx(props: { topic: string; slide: SlideInputMeta }) {
+function SlideJsx(props: { topic: string; slide: SlideWithOptionalVisual }) {
   const { topic, slide } = props;
-  // PIP 영역(우하단 ~480px) 침범 회피 — 컨텐츠 폭 1280px로 제한
+  const hasVisual = !!slide.visual_url;
+  // 비주얼 있으면 컨텐츠 폭 ~1080px, 없으면 1280px
+  const contentMaxWidth = hasVisual ? 1080 : 1280;
   return (
     <div
       style={{
@@ -56,8 +66,32 @@ function SlideJsx(props: { topic: string; slide: SlideInputMeta }) {
         padding: "80px 96px 96px 96px",
         fontFamily: "Pretendard",
         color: "#f8fafc",
+        position: "relative",
       }}
     >
+      {hasVisual && (
+        <div
+          style={{
+            position: "absolute",
+            top: 80,
+            right: 96,
+            width: 640,
+            height: 420,
+            display: "flex",
+            borderRadius: 16,
+            overflow: "hidden",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
+          }}
+        >
+          <img
+            src={slide.visual_url!}
+            alt={slide.visual_alt ?? ""}
+            width={640}
+            height={420}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        </div>
+      )}
       <div
         style={{
           display: "flex",
@@ -77,7 +111,7 @@ function SlideJsx(props: { topic: string; slide: SlideInputMeta }) {
           fontWeight: 700,
           lineHeight: 1.15,
           marginBottom: 48,
-          maxWidth: 1280,
+          maxWidth: contentMaxWidth,
         }}
       >
         {slide.title}
@@ -95,7 +129,9 @@ function SlideJsx(props: { topic: string; slide: SlideInputMeta }) {
           display: "flex",
           flexDirection: "column",
           gap: 28,
-          maxWidth: 1280,
+          maxWidth: contentMaxWidth,
+          // 비주얼 있으면 컨텐츠는 슬라이드 하단부에 (우상단 이미지와 겹치지 않게)
+          marginTop: hasVisual ? 200 : 0,
         }}
       >
         {(slide.content_blocks ?? []).slice(0, 5).map((b, i) => (
@@ -140,7 +176,7 @@ function SlideJsx(props: { topic: string; slide: SlideInputMeta }) {
   );
 }
 
-async function renderSlideToPng(topic: string, slide: SlideInputMeta): Promise<Buffer> {
+async function renderSlideToPng(topic: string, slide: SlideWithOptionalVisual): Promise<Buffer> {
   const { semibold, regular } = await loadFonts();
   const img = new ImageResponse(<SlideJsx topic={topic} slide={slide} />, {
     width: 1920,
@@ -161,7 +197,7 @@ export async function generateSlideImage(
   supabase: SupabaseClient,
   castJobId: string,
   topic: string,
-  slide: SlideInputMeta,
+  slide: SlideWithOptionalVisual,
 ): Promise<SlideImageResult> {
   const png = await renderSlideToPng(topic, slide);
   const path = `${castJobId}/slide-${String(slide.slide_number).padStart(3, "0")}.png`;
@@ -200,7 +236,7 @@ export async function generateAllSlideImages(
   supabase: SupabaseClient,
   castJobId: string,
   topic: string,
-  slides: SlideInputMeta[],
+  slides: SlideWithOptionalVisual[],
 ): Promise<SlideImageResult[]> {
   const r = await generateAllSlideImagesDetailed(supabase, castJobId, topic, slides);
   return r.images;
@@ -213,7 +249,7 @@ export async function generateAllSlideImagesDetailed(
   supabase: SupabaseClient,
   castJobId: string,
   topic: string,
-  slides: SlideInputMeta[],
+  slides: SlideWithOptionalVisual[],
 ): Promise<SlideImageBatchResult> {
   let firstError: string | null = null;
   const tasks = slides.map((s) =>

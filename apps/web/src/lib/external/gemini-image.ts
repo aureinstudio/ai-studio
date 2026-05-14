@@ -181,3 +181,35 @@ export async function generateAvatarImage(
     `All image generation models failed:\n${errors.join("\n")}`,
   );
 }
+
+/**
+ * 자유 프롬프트 이미지 생성 — 아바타 외 용도 (슬라이드 visual 등).
+ * MODELS_TO_TRY 순서로 시도, 첫 성공 반환.
+ */
+export async function generatePromptedImage(prompt: string): Promise<GeneratedImage> {
+  const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
+
+  const errors: string[] = [];
+  for (const m of MODELS_TO_TRY) {
+    try {
+      const result =
+        m.kind === "imagen"
+          ? await tryImagen(apiKey, m.name, prompt)
+          : await tryGemini(apiKey, m.name, prompt);
+      if (result) {
+        return {
+          base64: result.base64,
+          mimeType: result.mimeType,
+          prompt_used: prompt,
+          model_used: m.name,
+          cost_usd: m.cost,
+        };
+      }
+      errors.push(`${m.name}: no image`);
+    } catch (e) {
+      errors.push(`${m.name}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  throw new Error(`All image generation failed:\n${errors.join("\n")}`);
+}

@@ -6,6 +6,7 @@ import { submitHeyGenVideo, type AvatarType, type VideoResult, type VoiceScene, 
 import { runCastCaptionsChapters, type CaptionsResult } from "./captions-chapters";
 import { QualityChecker, type QualityCheckerOutput } from "./quality-checker";
 import { generateAllSlideImagesDetailed } from "./slide-image";
+import { enrichSlidesWithVisuals } from "@/lib/visuals/enrich";
 import { Agent, AgentError, type AgentLog } from "../base";
 import { logCost } from "@/lib/cost-tracker";
 
@@ -153,10 +154,14 @@ export async function runCastFullChain(
   await persistJobField({ status: "running", agent_logs: [] });
 
   try {
-    // ⚡ 슬라이드 이미지 렌더링 — TEAM1과 *병렬* 시작.
-    // 슬라이드 이미지는 TEAM1 결과를 필요로 하지 않으므로 LLM과 동시 실행 → ~10s 절약.
-    // HeyGen 제출 직전에 await.
-    const slideImagesPromise = generateAllSlideImagesDetailed(supabase, castJobId, topic, slides)
+    // ⚡ 슬라이드 비주얼 enrich (Gemini planner + Unsplash/Gemini Image) → 이미지 렌더링
+    // TEAM1과 *병렬* 시작. enrich는 fail-soft — 실패 시 visual 없이 렌더.
+    const slideImagesPromise = enrichSlidesWithVisuals(supabase, castJobId, topic, slides)
+      .catch((err) => {
+        console.warn("[cast/visual-enrich] failed (proceed without visuals):", err instanceof Error ? err.message : String(err));
+        return slides;
+      })
+      .then((enrichedSlides) => generateAllSlideImagesDetailed(supabase, castJobId, topic, enrichedSlides))
       .catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn("[cast/slide-image] outer failed (fail-soft):", msg);
