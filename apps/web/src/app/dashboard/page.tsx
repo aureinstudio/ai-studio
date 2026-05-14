@@ -258,6 +258,32 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
+      {/* 강사 전용 hero — Studio Pro 강조 */}
+      {(profile.role === "instructor" || profile.role === "admin" || profile.role === "sme") && (
+        <Link
+          href="/studio-pro"
+          className="mb-5 block rounded-xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 p-6 transition-all hover:-translate-y-0.5 hover:shadow-xl dark:border-amber-700 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-amber-950/40"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                ⭐ 강사 전용 · Studio Pro
+              </p>
+              <h3 className="text-2xl font-bold tracking-tight">
+                내 강의 자료로 영상 만들기
+              </h3>
+              <p className="mt-2 text-sm text-foreground/80">
+                PDF·PPT·텍스트 업로드 → AI가 보강 → <b>본인 얼굴·목소리</b>로 영상 자동 합성.
+                기존 강의 자료를 그대로 살려 효율 ↑.
+              </p>
+            </div>
+            <span className="hidden shrink-0 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-md sm:inline-block">
+              시작 →
+            </span>
+          </div>
+        </Link>
+      )}
+
       {/* 빠른 액션 + 최근 작업 */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* 액션 카드 */}

@@ -3,15 +3,19 @@ import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "./LogoutButton";
 import { ThemeToggle } from "./ThemeToggle";
 
-const NAV_ITEMS = [
+type NavItem = { href: string; label: string; highlight?: boolean; instructorOnly?: boolean };
+
+const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "대시보드" },
   { href: "/courses", label: "과정" },
   { href: "/studio", label: "Studio" },
-  { href: "/studio-pro", label: "Studio Pro" },
+  { href: "/studio-pro", label: "Studio Pro", highlight: true, instructorOnly: true },
   { href: "/cast", label: "Cast" },
   { href: "/tutor", label: "Tutor" },
   { href: "/dashboard/history", label: "내 작업" },
 ];
+
+const INSTRUCTOR_ROLES = new Set(["instructor", "admin", "sme", "creator"]);
 
 const ROLE_LINK: Record<string, { href: string; label: string }> = {
   admin: { href: "/admin", label: "관리자" },
@@ -28,15 +32,17 @@ export async function Header() {
 
   // 역할 조회 (로그인 사용자만)
   let roleLink: { href: string; label: string } | null = null;
+  let userRole: string | undefined;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
-    const role = profile?.role as string | undefined;
-    if (role && ROLE_LINK[role]) roleLink = ROLE_LINK[role];
+    userRole = profile?.role as string | undefined;
+    if (userRole && ROLE_LINK[userRole]) roleLink = ROLE_LINK[userRole];
   }
+  const isInstructorRole = !!userRole && INSTRUCTOR_ROLES.has(userRole);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -57,12 +63,17 @@ export async function Header() {
 
           {user && (
             <nav className="hidden items-center gap-1 md:flex">
-              {NAV_ITEMS.map((item) => (
+              {NAV_ITEMS.filter((item) => !item.instructorOnly || isInstructorRole).map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                  className={
+                    item.highlight
+                      ? "flex items-center gap-1 rounded-md border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+                      : "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                  }
                 >
+                  {item.highlight && <span aria-hidden>⭐</span>}
                   {item.label}
                 </Link>
               ))}

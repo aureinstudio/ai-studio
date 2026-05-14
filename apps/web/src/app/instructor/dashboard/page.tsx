@@ -98,6 +98,28 @@ export default async function InstructorDashboardPage() {
         </div>
       </header>
 
+      {/* Hero CTA — Studio Pro (강사 직접 강의 만들기) */}
+      <Link
+        href="/studio-pro"
+        className="block rounded-xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50 p-6 transition-all hover:-translate-y-0.5 hover:shadow-xl dark:border-amber-700 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-amber-950/40"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
+              ⭐ Studio Pro · 강사 전용
+            </p>
+            <h2 className="text-2xl font-bold tracking-tight">내 자료로 강의 만들기</h2>
+            <p className="mt-2 text-sm">
+              PDF·PPT·텍스트 업로드 → AI 보강 → <b>본인 얼굴·목소리</b>로 영상 자동 합성.
+              먼저 <Link href="/instructor/assets" className="underline">사진·음성 등록</Link>하면 모든 영상에 자동 적용됩니다.
+            </p>
+          </div>
+          <span className="hidden shrink-0 rounded-full bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-md sm:inline-block">
+            지금 시작 →
+          </span>
+        </div>
+      </Link>
+
       {/* W13 KPI 위젯 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
