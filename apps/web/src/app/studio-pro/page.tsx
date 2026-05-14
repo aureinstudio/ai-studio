@@ -48,7 +48,8 @@ export default async function Page() {
         <UploadForm />
         <div className="mt-4 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
           <b>지원 형식:</b> .md / .txt / .pdf / .pptx — 최대 20 MB<br />
-          <b>처리:</b> 텍스트 추출 → Studio orchestrator로 AI 보강 → (v0.47+) Cast 자동 영상 합성
+          <b>처리:</b> 텍스트 추출 → Studio AI 보강 → (영상 옵션 시) Cast 자동 합성<br />
+          <b>본인 얼굴·목소리:</b> <a href="/instructor/assets" className="underline">/instructor/assets</a>에서 사진·음성 등록 시 영상에 자동 적용
         </div>
       </section>
 

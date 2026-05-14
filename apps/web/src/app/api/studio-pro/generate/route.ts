@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runDynamicChain } from "@/lib/agents/orchestrator-dynamic";
+import { runCastFullChain } from "@/lib/agents/cast/orchestrator-full";
 import { detectSourceType, extractText } from "@/lib/studio-pro/extract-text";
 
 export const runtime = "nodejs";
@@ -143,16 +144,110 @@ export async function POST(request: NextRequest) {
         course_category: category as "certification" | "professional" | "language" | "hobby" | "academic",
       }, "claude-sonnet-4-5");
 
-      // v0.43 skeleton: 영상 합성은 사용자가 /dashboard/history/{studio_job_id}에서 [Cast 영상 만들기] 클릭
-      // v0.44+에서 자동 트리거 + 강사 사진/음성 클론 통합 예정
-      const note = synthVideo
-        ? "studio 보강 완료. 영상 합성은 작업 결과 페이지의 [Cast 영상 만들기] 버튼에서 실행하세요 (v0.44 자동화 예정)."
-        : "studio 보강 완료.";
-      await admin.from("studio_pro_jobs").update({
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        error: synthVideo ? note : null,
-      }).eq("id", proJob.id);
+      if (!synthVideo) {
+        await admin.from("studio_pro_jobs").update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        }).eq("id", proJob.id);
+        return;
+      }
+
+      // v0.47: Cast 자동 트리거 — 강사 자산이 등록되어 있으면 본인 얼굴/목소리 사용
+      await admin.from("studio_pro_jobs").update({ status: "synthesizing_video" }).eq("id", proJob.id);
+
+      // Studio 결과에서 slides 추출
+      const { data: completedStudio } = await admin
+        .from("studio_jobs")
+        .select("topic, content")
+        .eq("id", studioJob.id)
+        .single();
+
+      const slides = (completedStudio?.content as {
+        planner?: { slides?: unknown[] };
+        team2?: { planner?: { slides?: unknown[] } };
+      } | null)?.planner?.slides
+        ?? (completedStudio?.content as { team2?: { planner?: { slides?: unknown[] } } } | null)?.team2?.planner?.slides
+        ?? [];
+
+      if (slides.length === 0) {
+        await admin.from("studio_pro_jobs").update({
+          status: "failed",
+          error: "studio 완료됐으나 slides 미생성 — cast 트리거 불가",
+        }).eq("id", proJob.id);
+        return;
+      }
+
+      // 강사 자산 조회 (talking_photo_id + voice_id)
+      const { data: assets } = await admin
+        .from("instructor_assets")
+        .select("heygen_talking_photo_id, heygen_voice_id")
+        .eq("instructor_id", user.id)
+        .maybeSingle();
+
+      const hasOwnFace = !!assets?.heygen_talking_photo_id;
+      const hasOwnVoice = !!assets?.heygen_voice_id;
+      const avatarId = assets?.heygen_talking_photo_id ?? "Anna_public_3_20240108";
+      const voiceId = assets?.heygen_voice_id ?? "bef4755ca1f442359c2fe6420690c8f7";
+      const avatarType: "avatar" | "talking_photo" = hasOwnFace ? "talking_photo" : "avatar";
+
+      // cast_jobs 생성
+      const { data: castJob, error: cjErr } = await admin
+        .from("cast_jobs")
+        .insert({
+          user_id: user.id,
+          studio_job_id: studioJob.id,
+          mode: "full",
+          input_slides: slides,
+          status: "pending",
+          agent_logs: [],
+          approved: true,
+        })
+        .select("id")
+        .single();
+
+      if (cjErr || !castJob) {
+        await admin.from("studio_pro_jobs").update({
+          status: "failed",
+          error: `cast_job insert: ${cjErr?.message}`,
+        }).eq("id", proJob.id);
+        return;
+      }
+
+      await admin.from("studio_pro_jobs").update({ cast_job_id: castJob.id }).eq("id", proJob.id);
+
+      // Webhook URL
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+        ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://ai-studio-drab-nine.vercel.app");
+      const webhookUrl = `${baseUrl}/api/cast/webhooks/heygen`;
+
+      try {
+        await runCastFullChain(
+          admin,
+          castJob.id,
+          user.id,
+          completedStudio?.topic ?? title,
+          slides as never,
+          category === "certification",
+          "claude-sonnet-4-5",
+          avatarId,
+          "heygen",
+          voiceId,
+          webhookUrl,
+          avatarType,
+        );
+        await admin.from("studio_pro_jobs").update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          error: hasOwnFace && hasOwnVoice
+            ? null
+            : `완료. 본인 자산 미등록 → ${hasOwnFace ? "" : "얼굴 "}${hasOwnVoice ? "" : "음성 "}기본 사용. /instructor/assets에서 등록 시 다음부터 본인 자산 적용.`,
+        }).eq("id", proJob.id);
+      } catch (castErr) {
+        await admin.from("studio_pro_jobs").update({
+          status: "failed",
+          error: `cast pipeline: ${castErr instanceof Error ? castErr.message : String(castErr)}`,
+        }).eq("id", proJob.id);
+      }
     } catch (err) {
       await admin.from("studio_pro_jobs").update({
         status: "failed",
