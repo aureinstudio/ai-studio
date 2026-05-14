@@ -90,6 +90,7 @@ export default async function InstructorDashboardPage() {
         <div className="flex flex-wrap gap-2">
           <Link href="/instructor/weekly-report" className="px-3 py-1.5 text-sm rounded bg-foreground text-background">📝 주간 보고</Link>
           <Link href="/instructor/proposals" className="px-3 py-1.5 text-sm rounded border hover:bg-muted">💡 콘텐츠 제안</Link>
+          <Link href="/instructor/assets" className="px-3 py-1.5 text-sm rounded border hover:bg-muted">🎭 강사 자산</Link>
           <Link href="/instructor/training" className="px-3 py-1.5 text-sm rounded border hover:bg-muted">🎓 교육</Link>
           <Link href="/instructors/community" className="px-3 py-1.5 text-sm rounded border hover:bg-muted">💬 커뮤니티</Link>
           <Link href="/instructor/nps" className="px-3 py-1.5 text-sm rounded border hover:bg-muted">📊 월간 NPS</Link>

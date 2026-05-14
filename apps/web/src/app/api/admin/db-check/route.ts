@@ -105,7 +105,7 @@ export async function GET(_request: NextRequest) {
   // Storage 버킷
   const { data: buckets } = await admin.storage.listBuckets();
   const bucketNames = new Set((buckets ?? []).map((b) => b.name));
-  const expectedBuckets = ["cast-audio", "cast-video", "cast-captions", "studio-pptx", "cast-slide-images", "user-avatar-sources", "studio-pro-uploads"];
+  const expectedBuckets = ["cast-audio", "cast-video", "cast-captions", "studio-pptx", "cast-slide-images", "user-avatar-sources", "studio-pro-uploads", "instructor-photos", "instructor-voices"];
   const bucketCheck = expectedBuckets.map((name) => ({
     name,
     ok: bucketNames.has(name),
