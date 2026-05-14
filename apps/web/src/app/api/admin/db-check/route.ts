@@ -78,6 +78,9 @@ export async function GET(_request: NextRequest) {
     { name: "phase4_plans (W14)", migration: "0032", table: "phase4_plans" },
     { name: "studio_pro_jobs (v0.43)", migration: "0033", table: "studio_pro_jobs" },
     { name: "instructor_assets (v0.43)", migration: "0033", table: "instructor_assets" },
+    { name: "tenants (Phase 4 PR-1)", migration: "0034", table: "tenants", column: "slug" },
+    { name: "profiles.tenant_id (Phase 4 PR-1)", migration: "0034", table: "profiles", column: "tenant_id" },
+    { name: "studio_jobs.tenant_id (Phase 4 PR-1)", migration: "0034", table: "studio_jobs", column: "tenant_id" },
   ];
 
   // 각 체크 — 1 row select로 존재 확인. 컬럼이 명시되면 그 컬럼도 select.
