@@ -65,31 +65,64 @@ values (
 on conflict (id) do nothing;
 
 -- ═══ 3. tenant_id 컬럼 추가 (NULL 허용) ════════════════════
--- 핵심 테이블에 컬럼만 추가. backfill + NOT NULL은 PR-2.
-alter table public.profiles add column if not exists tenant_id uuid references public.tenants(id);
-alter table public.studio_jobs add column if not exists tenant_id uuid references public.tenants(id);
-alter table public.cast_jobs add column if not exists tenant_id uuid references public.tenants(id);
-alter table public.tutor_conversations add column if not exists tenant_id uuid references public.tenants(id);
-alter table public.user_avatars add column if not exists tenant_id uuid references public.tenants(id);
-alter table public.sme_evaluations add column if not exists tenant_id uuid references public.tenants(id);
-alter table public.kpi_metrics add column if not exists tenant_id uuid references public.tenants(id);
-alter table public.student_enrollments add column if not exists tenant_id uuid references public.tenants(id);
-alter table public.api_keys add column if not exists tenant_id uuid references public.tenants(id);
-alter table public.instructor_assets add column if not exists tenant_id uuid references public.tenants(id);
-alter table public.studio_pro_jobs add column if not exists tenant_id uuid references public.tenants(id);
+-- 핵심 테이블에 컬럼만 추가. 누락 테이블은 안전하게 스킵 (DO + IF EXISTS).
+-- backfill + NOT NULL은 PR-2.
+
+do $$
+declare
+  tbl text;
+  tbls text[] := array[
+    'profiles', 'studio_jobs', 'cast_jobs', 'tutor_conversations',
+    'user_avatars', 'sme_evaluations', 'kpi_metrics', 'student_enrollments',
+    'api_keys', 'instructor_assets', 'studio_pro_jobs'
+  ];
+begin
+  foreach tbl in array tbls loop
+    if exists (
+      select 1 from information_schema.tables
+      where table_schema = 'public' and table_name = tbl
+    ) then
+      execute format(
+        'alter table public.%I add column if not exists tenant_id uuid references public.tenants(id)',
+        tbl
+      );
+      raise notice '[0034] tenant_id added to %', tbl;
+    else
+      raise notice '[0034] SKIP % (table does not exist)', tbl;
+    end if;
+  end loop;
+end $$;
 
 -- 인덱스 (조회 성능 — RLS가 매번 tenant_id로 필터함)
-create index if not exists idx_profiles_tenant on public.profiles(tenant_id);
-create index if not exists idx_studio_jobs_tenant on public.studio_jobs(tenant_id, created_at desc);
-create index if not exists idx_cast_jobs_tenant on public.cast_jobs(tenant_id, created_at desc);
-create index if not exists idx_tutor_conversations_tenant on public.tutor_conversations(tenant_id);
-create index if not exists idx_user_avatars_tenant on public.user_avatars(tenant_id);
-create index if not exists idx_sme_evaluations_tenant on public.sme_evaluations(tenant_id);
-create index if not exists idx_kpi_metrics_tenant on public.kpi_metrics(tenant_id);
-create index if not exists idx_student_enrollments_tenant on public.student_enrollments(tenant_id);
-create index if not exists idx_api_keys_tenant on public.api_keys(tenant_id);
-create index if not exists idx_instructor_assets_tenant on public.instructor_assets(tenant_id);
-create index if not exists idx_studio_pro_jobs_tenant on public.studio_pro_jobs(tenant_id);
+-- 컬럼이 추가된 테이블에만 인덱스 생성
+do $$
+declare
+  rec record;
+begin
+  for rec in
+    select table_name from information_schema.columns
+    where table_schema = 'public'
+      and column_name = 'tenant_id'
+      and table_name in (
+        'profiles', 'studio_jobs', 'cast_jobs', 'tutor_conversations',
+        'user_avatars', 'sme_evaluations', 'kpi_metrics', 'student_enrollments',
+        'api_keys', 'instructor_assets', 'studio_pro_jobs'
+      )
+  loop
+    -- studio_jobs / cast_jobs는 created_at desc 복합 인덱스 (조회 패턴 일치)
+    if rec.table_name in ('studio_jobs', 'cast_jobs') then
+      execute format(
+        'create index if not exists idx_%s_tenant on public.%I(tenant_id, created_at desc)',
+        rec.table_name, rec.table_name
+      );
+    else
+      execute format(
+        'create index if not exists idx_%s_tenant on public.%I(tenant_id)',
+        rec.table_name, rec.table_name
+      );
+    end if;
+  end loop;
+end $$;
 
 -- ═══ 4. 역할 확장 — keg_super_admin + tenant_admin ════════
 alter table public.profiles drop constraint if exists profiles_role_check;
