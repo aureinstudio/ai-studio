@@ -76,6 +76,8 @@ export async function GET(_request: NextRequest) {
     { name: "retrospective_final (W14)", migration: "0032", table: "retrospective_final" },
     { name: "beta_end_data_choices (W14)", migration: "0032", table: "beta_end_data_choices" },
     { name: "phase4_plans (W14)", migration: "0032", table: "phase4_plans" },
+    { name: "studio_pro_jobs (v0.43)", migration: "0033", table: "studio_pro_jobs" },
+    { name: "instructor_assets (v0.43)", migration: "0033", table: "instructor_assets" },
   ];
 
   // 각 체크 — 1 row select로 존재 확인. 컬럼이 명시되면 그 컬럼도 select.
@@ -103,7 +105,7 @@ export async function GET(_request: NextRequest) {
   // Storage 버킷
   const { data: buckets } = await admin.storage.listBuckets();
   const bucketNames = new Set((buckets ?? []).map((b) => b.name));
-  const expectedBuckets = ["cast-audio", "cast-video", "cast-captions", "studio-pptx", "cast-slide-images", "user-avatar-sources"];
+  const expectedBuckets = ["cast-audio", "cast-video", "cast-captions", "studio-pptx", "cast-slide-images", "user-avatar-sources", "studio-pro-uploads"];
   const bucketCheck = expectedBuckets.map((name) => ({
     name,
     ok: bucketNames.has(name),

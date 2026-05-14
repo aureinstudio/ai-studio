@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "대시보드" },
   { href: "/courses", label: "과정" },
   { href: "/studio", label: "Studio" },
+  { href: "/studio-pro", label: "Studio Pro" },
   { href: "/cast", label: "Cast" },
   { href: "/tutor", label: "Tutor" },
   { href: "/dashboard/history", label: "내 작업" },
