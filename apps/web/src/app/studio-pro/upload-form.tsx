@@ -87,10 +87,10 @@ export default function UploadForm() {
       </div>
 
       <label className="block">
-        <span className="mb-1 block text-sm font-medium">강의 자료 (.md / .txt) *</span>
+        <span className="mb-1 block text-sm font-medium">강의 자료 (.md / .txt / .pdf / .pptx) *</span>
         <input
           type="file"
-          accept=".md,.txt,text/plain,text/markdown"
+          accept=".md,.txt,.pdf,.pptx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           required
           className="w-full rounded-md border bg-background px-3 py-2 text-sm"

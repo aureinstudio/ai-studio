@@ -3,13 +3,13 @@ import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runDynamicChain } from "@/lib/agents/orchestrator-dynamic";
+import { detectSourceType, extractText } from "@/lib/studio-pro/extract-text";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const ALLOWED_TYPES = new Set(["text/plain", "text/markdown", ""]);
-const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_BYTES = 20 * 1024 * 1024; // 20MB (pdf/pptx 대응)
 const VALID_CATEGORY = new Set(["certification", "professional", "language", "hobby", "academic"]);
 
 /**
@@ -51,13 +51,10 @@ export async function POST(request: NextRequest) {
   if (!(file instanceof File)) return NextResponse.json({ error: "file required" }, { status: 400 });
   if (file.size > MAX_BYTES) return NextResponse.json({ error: `file too large (max ${MAX_BYTES / 1024 / 1024}MB)` }, { status: 400 });
 
-  // 확장자 화이트리스트
-  const lower = file.name.toLowerCase();
-  if (!lower.endsWith(".md") && !lower.endsWith(".txt")) {
-    return NextResponse.json({ error: "only .md / .txt supported in v0.43" }, { status: 400 });
-  }
-  if (!ALLOWED_TYPES.has(file.type)) {
-    // 일부 브라우저는 mime을 빈 문자열로 보냄 — 확장자만 통과
+  // 확장자 화이트리스트 (.md, .txt, .pdf, .pptx)
+  const sourceType = detectSourceType(file.name);
+  if (!sourceType) {
+    return NextResponse.json({ error: "supported: .md / .txt / .pdf / .pptx" }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -68,7 +65,7 @@ export async function POST(request: NextRequest) {
     .insert({
       instructor_id: user.id,
       title,
-      source_file_type: lower.endsWith(".md") ? "md" : "txt",
+      source_file_type: sourceType,
       status: "extracting",
     })
     .select("id")
@@ -89,8 +86,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: upErr.message }, { status: 500 });
   }
 
-  // 3) 텍스트 추출 (md/txt — 직접 디코드)
-  const extracted = new TextDecoder("utf-8").decode(bytes).trim();
+  // 3) 텍스트 추출 (md/txt/pdf/pptx)
+  let extracted = "";
+  try {
+    extracted = await extractText(bytes, sourceType);
+  } catch (e) {
+    await admin.from("studio_pro_jobs").update({
+      status: "failed",
+      error: `extraction failed (${sourceType}): ${e instanceof Error ? e.message : String(e)}`,
+    }).eq("id", proJob.id);
+    return NextResponse.json({ error: `extraction failed: ${e instanceof Error ? e.message : "unknown"}` }, { status: 400 });
+  }
   if (extracted.length < 50) {
     await admin.from("studio_pro_jobs").update({ status: "failed", error: "extracted text too short (<50 chars)" }).eq("id", proJob.id);
     return NextResponse.json({ error: "extracted text too short" }, { status: 400 });

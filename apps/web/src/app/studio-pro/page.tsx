@@ -47,8 +47,8 @@ export default async function Page() {
         <h2 className="mb-4 text-lg font-semibold">새 작업 시작</h2>
         <UploadForm />
         <div className="mt-4 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
-          <b>현재 지원 (v0.43):</b> .md / .txt — 본문 텍스트 추출 + Studio 보강 + 가상 아바타 영상 합성<br />
-          <b>향후 (v0.44+):</b> PDF · PPTX · 강사 사진 · 강사 음성 클론
+          <b>지원 형식:</b> .md / .txt / .pdf / .pptx — 최대 20 MB<br />
+          <b>처리:</b> 텍스트 추출 → Studio orchestrator로 AI 보강 → (v0.47+) Cast 자동 영상 합성
         </div>
       </section>
 
