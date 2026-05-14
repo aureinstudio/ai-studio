@@ -31,7 +31,11 @@ export async function enrichSlidesWithVisuals<
 ): Promise<SlideWithVisual<T>[]> {
   const tasks = slides.map(async (slide): Promise<SlideWithVisual<T>> => {
     const plan = await planSlideVisual(topic, slide);
-    if (plan.type === "none") return { ...slide, visual_type: "none" };
+    if (plan.type === "none") {
+      console.log(`[visual-enrich] slide ${slide.slide_number} skipped (none) — ${plan.reason}`);
+      return { ...slide, visual_type: "none" };
+    }
+    console.log(`[visual-enrich] slide ${slide.slide_number} → ${plan.type} — ${plan.reason}`);
 
     try {
       // photo / concept 모두 Gemini Image 생성으로 처리
