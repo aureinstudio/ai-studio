@@ -197,6 +197,20 @@ export default function StudioPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-16 lg:px-10 lg:py-20">
+      {/* 강사 안내 배너 — 본인 자료가 있다면 Studio Pro로 */}
+      <a
+        href="/studio-pro"
+        className="mb-8 flex items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50 px-5 py-3 text-sm transition-colors hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-950/60"
+      >
+        <div>
+          <span className="font-semibold text-amber-900 dark:text-amber-200">⭐ 강사이신가요?</span>
+          <span className="ml-2 text-amber-800 dark:text-amber-300">
+            본인 강의 자료가 있으면 <b>Studio Pro</b>에서 AI 보강 + 본인 얼굴·목소리로 영상까지.
+          </span>
+        </div>
+        <span className="shrink-0 text-xs font-semibold text-amber-900 dark:text-amber-200">바로가기 →</span>
+      </a>
+
       <div className="mb-10">
         <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
           Studio · Multi-Agent Chain

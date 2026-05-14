@@ -42,6 +42,7 @@ export async function Header() {
     userRole = profile?.role as string | undefined;
     if (userRole && ROLE_LINK[userRole]) roleLink = ROLE_LINK[userRole];
   }
+  const isAdmin = userRole === "admin";
   const isInstructorRole = !!userRole && INSTRUCTOR_ROLES.has(userRole);
 
   return (
@@ -63,7 +64,7 @@ export async function Header() {
 
           {user && (
             <nav className="hidden items-center gap-1 md:flex">
-              {NAV_ITEMS.filter((item) => !item.instructorOnly || isInstructorRole).map((item) => (
+              {NAV_ITEMS.filter((item) => isAdmin || !item.instructorOnly || isInstructorRole).map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
