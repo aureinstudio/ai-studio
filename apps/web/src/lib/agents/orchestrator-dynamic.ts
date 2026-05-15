@@ -410,6 +410,27 @@ export async function runDynamicChain(
       })
       .eq("id", jobId);
 
+    // Webhook 발송 (PR-A 추가) — tenant_id 조회 후 비동기 dispatch
+    void (async () => {
+      try {
+        const { data: job } = await supabase
+          .from("studio_jobs")
+          .select("tenant_id, topic")
+          .eq("id", jobId)
+          .maybeSingle();
+        if (job?.tenant_id) {
+          const { dispatchEvent } = await import("@/lib/webhooks/dispatch");
+          await dispatchEvent(job.tenant_id, "studio.completed", {
+            job_id: jobId,
+            topic: job.topic,
+            cost_usd: totalCost,
+          });
+        }
+      } catch (e) {
+        console.warn(`[orchestrator] webhook dispatch failed for ${jobId}:`, e);
+      }
+    })();
+
     return {
       plan,
       planning,
