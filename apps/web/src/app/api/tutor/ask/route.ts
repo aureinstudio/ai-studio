@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = profile?.role === "admin" || profile?.role === "keg_super_admin";
 
   // Rate limit — 분당 10회/사용자
   const rl = await checkRateLimit("tutor:ask", user.id, {

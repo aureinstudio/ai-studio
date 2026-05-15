@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = profile?.role === "admin" || profile?.role === "keg_super_admin";
 
   const rl = await checkRateLimit("studio:generate", user.id, {
     isAdmin,

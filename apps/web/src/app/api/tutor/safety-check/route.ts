@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     .select("role")
     .eq("id", user.id)
     .maybeSingle();
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = profile?.role === "admin" || profile?.role === "keg_super_admin";
   if (!isAdmin && conv.student_id !== user.id) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
