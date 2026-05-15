@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "./LogoutButton";
 import { ThemeToggle } from "./ThemeToggle";
@@ -56,12 +57,24 @@ export async function Header() {
             href={user ? "/dashboard" : "/"}
             className="group flex items-center gap-2.5 transition-opacity hover:opacity-80"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-background text-sm font-bold tracking-tighter shadow-sm">
-              ai
-            </span>
-            <span className="text-base font-semibold tracking-tight text-foreground">
-              ai-studio
-            </span>
+            {/* 라이트 모드 — 블랙 로고 */}
+            <Image
+              src="/logo_bk.png"
+              alt="ai-studio"
+              width={120}
+              height={32}
+              priority
+              className="block h-8 w-auto dark:hidden"
+            />
+            {/* 다크 모드 — 화이트 로고 */}
+            <Image
+              src="/logo_wh.png"
+              alt="ai-studio"
+              width={120}
+              height={32}
+              priority
+              className="hidden h-8 w-auto dark:block"
+            />
           </Link>
 
           {user && (
