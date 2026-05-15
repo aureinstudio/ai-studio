@@ -18,7 +18,9 @@ const NAV_ITEMS: NavItem[] = [
 const INSTRUCTOR_ROLES = new Set(["instructor", "admin", "sme", "creator"]);
 
 const ROLE_LINK: Record<string, { href: string; label: string }> = {
+  keg_super_admin: { href: "/super-admin", label: "Super Admin" },
   admin: { href: "/admin", label: "관리자" },
+  tenant_admin: { href: "/admin", label: "테넌트 관리자" },
   sme: { href: "/sme/dashboard", label: "SME" },
   instructor: { href: "/instructor/dashboard", label: "강사" },
   operations: { href: "/operations/dashboard", label: "운영팀" },
@@ -42,7 +44,7 @@ export async function Header() {
     userRole = profile?.role as string | undefined;
     if (userRole && ROLE_LINK[userRole]) roleLink = ROLE_LINK[userRole];
   }
-  const isAdmin = userRole === "admin";
+  const isAdmin = userRole === "admin" || userRole === "keg_super_admin";
   const isInstructorRole = !!userRole && INSTRUCTOR_ROLES.has(userRole);
 
   return (
