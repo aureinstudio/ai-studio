@@ -89,7 +89,7 @@ export default async function RunbookPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/admin/runbook");
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || !["admin", "operations", "instructor", "sme"].includes(profile.role)) {
+  if (!profile || !["admin", "operations", "instructor", "sme", "keg_super_admin"].includes(profile.role)) {
     return <div className="mx-auto max-w-3xl px-6 py-20 text-center"><h1 className="text-2xl font-semibold">접근 불가</h1></div>;
   }
 

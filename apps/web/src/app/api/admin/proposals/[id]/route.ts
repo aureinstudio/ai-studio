@@ -9,7 +9,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (!["admin", "sme"].includes(profile?.role ?? "")) {
+  if (!["admin", "sme", "keg_super_admin"].includes(profile?.role ?? "")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

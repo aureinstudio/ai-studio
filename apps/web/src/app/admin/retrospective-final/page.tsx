@@ -10,7 +10,7 @@ export default async function Page() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/admin/retrospective-final");
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (!["admin", "operations", "sme", "instructor", "creator"].includes(profile?.role ?? "")) redirect("/dashboard");
+  if (!["admin", "operations", "sme", "instructor", "creator", "keg_super_admin"].includes(profile?.role ?? "")) redirect("/dashboard");
 
   const admin = createAdminClient();
   const { data: entries } = await admin

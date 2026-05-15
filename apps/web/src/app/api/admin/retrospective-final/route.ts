@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (!["admin", "operations", "sme", "instructor", "creator"].includes(profile?.role ?? "")) {
+  if (!["admin", "operations", "sme", "instructor", "creator", "keg_super_admin"].includes(profile?.role ?? "")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

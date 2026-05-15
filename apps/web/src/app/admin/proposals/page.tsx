@@ -18,7 +18,7 @@ export default async function Page() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (!["admin", "sme"].includes(profile?.role ?? "")) redirect("/dashboard");
+  if (!["admin", "sme", "keg_super_admin"].includes(profile?.role ?? "")) redirect("/dashboard");
 
   const admin = createAdminClient();
   const { data: proposals } = await admin
