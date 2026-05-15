@@ -248,6 +248,8 @@ export default async function AdminPage() {
             { href: "/admin/runbook", label: "운영 매뉴얼", desc: "7개 셀프 서비스 문서 (W10)" },
             { href: "/admin/instructor-incentives", label: "강사 인센티브", desc: "월간 자동 계산 + 확정 (W13)" },
             { href: "/admin/proposals", label: "콘텐츠 제안 검토", desc: "강사 제안 SME 검토 큐 (W13)" },
+            { href: "/admin/course-expansion", label: "과정 확장 트래킹", desc: "5 → 10 과정 마이그레이션 (W21)" },
+            { href: "/admin/referrals", label: "추천 코드 관리", desc: "학생 모집 가속 (W21)" },
             { href: "/admin/g3-final-report", label: "G3 종합 보고서", desc: "14주 KPI·가설·ROI·자유서술 (W14)" },
             { href: "/admin/g3-decision", label: "G3 의사결정", desc: "EXPAND/DEEPEN/SAAS/STOP 4-옵션 (W14)" },
             { href: "/admin/saas-feasibility", label: "SaaS 사업성", desc: "B2B 시장·가격·경쟁 분석 (W14)" },
