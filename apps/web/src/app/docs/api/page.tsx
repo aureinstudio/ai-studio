@@ -5,8 +5,15 @@ export default function ApiDocsPage() {
     <div className="mx-auto max-w-3xl px-6 py-12">
       <h1 className="text-3xl font-bold">ai-studio API</h1>
       <p className="mt-2 text-muted-foreground">
-        외부 시스템에서 Studio·Cast·Tutor를 호출하기 위한 공개 API 가이드 (v0.40.0 · Phase 1).
+        외부 시스템에서 Studio·Cast·Tutor를 호출하기 위한 공개 API.
       </p>
+      <div className="mt-4 rounded-md border-2 border-amber-300 bg-amber-50 p-4">
+        <div className="font-semibold text-amber-900">⭐ v1 인터랙티브 문서 (Swagger UI)</div>
+        <p className="mt-1 text-sm text-amber-800">
+          OpenAPI 3.0 스펙 + try-it-out 기능 → <a href="/docs/api/v1" className="underline font-semibold">/docs/api/v1</a>
+        </p>
+        <p className="mt-1 text-xs text-amber-700">OpenAPI JSON: <a href="/api/v1/openapi.json" className="underline">/api/v1/openapi.json</a></p>
+      </div>
 
       <section className="mt-10 space-y-3">
         <h2 className="text-xl font-semibold">1. 인증</h2>
