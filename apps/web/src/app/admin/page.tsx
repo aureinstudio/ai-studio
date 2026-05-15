@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
-type Profile = { id: string; role: "user" | "admin" };
+type Profile = { id: string; role: "user" | "admin" | "keg_super_admin" | "sme" | "instructor" | "operations" | "creator" | "customer" | "tenant_admin" };
 
 type EvaluationRow = {
   id: string;
@@ -43,7 +43,7 @@ async function getAdminData() {
     .eq("id", user.id)
     .single<Profile>();
 
-  if (profile?.role !== "admin") return { unauthorized: true as const };
+  if (profile?.role !== "admin" && profile?.role !== "keg_super_admin") return { unauthorized: true as const };
 
   // 전체 통계
   const { count: totalJobs } = await supabase

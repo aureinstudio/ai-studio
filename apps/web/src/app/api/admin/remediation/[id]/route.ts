@@ -25,7 +25,7 @@ export async function PATCH(
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (profile?.role !== "admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (profile?.role !== "admin" && profile?.role !== "keg_super_admin") return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const { id } = await params;
   const parsed = schema.safeParse(await request.json().catch(() => ({})));

@@ -20,7 +20,7 @@ export default async function HypothesisTrackingPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/admin/hypothesis-tracking");
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return <Forbidden />;
+  if (profile?.role !== "admin" && profile?.role !== "keg_super_admin") return <Forbidden />;
 
   const admin = createAdminClient();
 

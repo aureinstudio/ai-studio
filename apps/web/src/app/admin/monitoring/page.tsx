@@ -20,7 +20,7 @@ export default async function MonitoringPage() {
     .select("role")
     .eq("id", user.id)
     .single();
-  if (profile?.role !== "admin") {
+  if (profile?.role !== "admin" && profile?.role !== "keg_super_admin") {
     return (
       <div className="mx-auto max-w-3xl px-6 py-20 text-center">
         <h1 className="text-2xl font-semibold">접근 불가</h1>

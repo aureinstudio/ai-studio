@@ -28,7 +28,7 @@ export default async function RetrospectivePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/admin/retrospective");
   const { data: profile } = await supabase.from("profiles").select("role, name").eq("id", user.id).single();
-  if (profile?.role !== "admin") {
+  if (profile?.role !== "admin" && profile?.role !== "keg_super_admin") {
     return <div className="mx-auto max-w-3xl px-6 py-20 text-center"><h1 className="text-2xl font-semibold">접근 불가</h1></div>;
   }
 
