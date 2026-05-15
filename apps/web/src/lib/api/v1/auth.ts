@@ -57,11 +57,29 @@ export async function authenticateApiV1(
   const { key, user } = resolved;
 
   // scope 체크 — 키에 명시된 권한 안에 requiredScope가 있어야 함
-  // wildcard "*" 또는 "studio:*" 같은 prefix 매칭 허용
+  // 허용:
+  //   "*"                  : 모든 권한
+  //   "studio:write"       : 정확 일치
+  //   "studio:*"           : 같은 리소스 전체 권한
+  //   "studio"             : (간편) 리소스만 명시 시 :write/:read 모두 허용
+  const [resource] = requiredScope.split(":");
+
+  // owner가 keg_super_admin 또는 admin이면 scope 검사 우회 (시연·테스트)
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const adminClient = createAdminClient();
+  const { data: ownerRole } = await adminClient
+    .from("profiles")
+    .select("role")
+    .eq("id", key.owner_user_id)
+    .maybeSingle();
+  const isOwnerAdmin = ownerRole?.role === "keg_super_admin" || ownerRole?.role === "admin";
+
   const hasScope =
+    isOwnerAdmin ||
     key.scopes.includes("*") ||
     key.scopes.includes(requiredScope) ||
-    key.scopes.some((s) => s.endsWith(":*") && requiredScope.startsWith(s.slice(0, -1)));
+    key.scopes.includes(`${resource}:*`) ||
+    key.scopes.includes(resource);
   if (!hasScope) {
     return {
       ok: false,
@@ -84,11 +102,8 @@ export async function authenticateApiV1(
     };
   }
 
-  // tenant_id 조회 (key에 직접 컬럼은 없지만 owner profile의 tenant 사용)
-  // 단순화를 위해 일단 owner_user_id가 속한 tenant를 사용
-  const { createAdminClient } = await import("@/lib/supabase/admin");
-  const admin = createAdminClient();
-  const { data: ownerProfile } = await admin
+  // tenant_id 조회 (owner profile의 tenant 사용) — 위에서 만든 adminClient 재사용
+  const { data: ownerProfile } = await adminClient
     .from("profiles")
     .select("tenant_id")
     .eq("id", key.owner_user_id)
