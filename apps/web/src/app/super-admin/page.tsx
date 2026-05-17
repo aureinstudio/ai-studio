@@ -85,6 +85,18 @@ export default async function Page() {
           <div className="text-xs font-bold uppercase tracking-wider text-indigo-700">▶ 차년도 계획서</div>
           <div className="mt-1 text-sm font-semibold">2027 · 8섹션 PDF (W37)</div>
         </Link>
+        <Link href="/super-admin/g4c-final-report" className="block rounded-lg border-2 border-purple-400 bg-purple-100 p-4 hover:bg-purple-200">
+          <div className="text-xs font-bold uppercase tracking-wider text-purple-700">▶▶ G4-C 최종 보고</div>
+          <div className="mt-1 text-sm font-semibold">Phase 4 종합 · 이사회용 (W38)</div>
+        </Link>
+        <Link href="/super-admin/g4c-decision" className="block rounded-lg border-2 border-red-400 bg-red-100 p-4 hover:bg-red-200">
+          <div className="text-xs font-bold uppercase tracking-wider text-red-700">▶▶ G4-C 결정</div>
+          <div className="mt-1 text-sm font-semibold">GO / HOLD / PIVOT (W38)</div>
+        </Link>
+        <Link href="/super-admin/phase5-prep" className="block rounded-lg border-2 border-indigo-400 bg-indigo-100 p-4 hover:bg-indigo-200">
+          <div className="text-xs font-bold uppercase tracking-wider text-indigo-700">▶▶ Phase 5 로드맵</div>
+          <div className="mt-1 text-sm font-semibold">24주 분기별 초안 (W38)</div>
+        </Link>
       </div>
 
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
