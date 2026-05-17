@@ -14,6 +14,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/cast", label: "Cast" },
   { href: "/tutor", label: "Tutor" },
   { href: "/dashboard/history", label: "내 작업" },
+  { href: "/blog", label: "Blog" },
 ];
 
 const INSTRUCTOR_ROLES = new Set(["instructor", "admin", "sme", "creator"]);

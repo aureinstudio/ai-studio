@@ -99,6 +99,9 @@ export async function GET(_request: NextRequest) {
     { name: "team_kpis (W31)", migration: "0045", table: "team_kpis", column: "metric_key" },
     { name: "pnl_snapshots (W31)", migration: "0045", table: "pnl_snapshots", column: "period" },
     { name: "hires (W31)", migration: "0045", table: "hires", column: "stage" },
+    { name: "blog_posts (W33)", migration: "0046", table: "blog_posts", column: "slug" },
+    { name: "content_pieces (W33)", migration: "0046", table: "content_pieces", column: "channel" },
+    { name: "press_mentions (W33)", migration: "0046", table: "press_mentions", column: "mention_type" },
   ];
 
   // 각 체크 — 1 row select로 존재 확인. 컬럼이 명시되면 그 컬럼도 select.
