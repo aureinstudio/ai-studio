@@ -1,9 +1,29 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail, wrapEmailHtml } from "@/lib/email/send";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+const CHECKIN_TEMPLATES: Record<string, { subject: string; body: string }> = {
+  day_30: {
+    subject: "[ai-studio] 가입 30일 — 학습 진척 확인",
+    body: "<p>안녕하세요,</p><p>ai-studio 가입 30일이 지났습니다. 학습이 잘 진행 중이신가요?</p><p>혹시 어려움이 있으시면 언제든 <a href=\"/tutor\">AI 튜터</a>에게 질문하시거나, 강사에게 문의해주세요.</p>",
+  },
+  day_60: {
+    subject: "[ai-studio] 가입 60일 — 진척률 점검",
+    body: "<p>가입 60일째입니다. 학습 목표 달성을 위해 한 번 더 점검해보세요.</p>",
+  },
+  day_90: {
+    subject: "[ai-studio] 가입 90일 — 수료 임박",
+    body: "<p>가입 90일째입니다. 수료까지 마지막 단계 — 부족한 부분 보강하세요.</p>",
+  },
+  low_usage: {
+    subject: "[ai-studio] 학습이 잠시 멈춰 있어요",
+    body: "<p>14일 이상 학습 활동이 없으셨네요. 잠깐 들러 이어서 시작해보세요!</p>",
+  },
+};
 
 /**
  * GET /api/cron/customer-success
@@ -35,13 +55,28 @@ export async function GET(_request: NextRequest) {
 
     for (const s of students ?? []) {
       const type = `day_${days}` as "day_30" | "day_60" | "day_90";
-      const { error } = await admin.from("customer_checkins").insert({
+      const { data: row, error } = await admin.from("customer_checkins").insert({
         user_id: s.id,
         checkin_type: type,
         scheduled_for: now.toISOString(),
         message: `가입 ${days}일 — 사용 경험 체크인`,
-      });
-      if (!error) results.checkins_created += 1;
+      }).select("id").single();
+      if (!error) {
+        results.checkins_created += 1;
+        // 학생 이메일 조회 + Resend 발송
+        const { data: profile } = await admin.from("profiles").select("email").eq("id", s.id).maybeSingle();
+        if (profile?.email) {
+          const tpl = CHECKIN_TEMPLATES[type];
+          await sendEmail({
+            to: profile.email,
+            subject: tpl.subject,
+            html: wrapEmailHtml(tpl.subject, tpl.body),
+            template: type,
+            related_table: "customer_checkins",
+            related_id: row?.id,
+          });
+        }
+      }
     }
   }
 
