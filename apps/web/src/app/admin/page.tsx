@@ -253,6 +253,7 @@ export default async function AdminPage() {
             { href: "/admin/marketing", label: "마케팅 캠페인", desc: "채널별 CAC·CVR (W25)" },
             { href: "/admin/sales-pipeline", label: "영업 파이프라인", desc: "B2B 칸반 (W26)" },
             { href: "/admin/case-studies", label: "성공 사례", desc: "B2B 영업 자료 (W28)" },
+            { href: "/admin/recruitment", label: "채용 파이프라인", desc: "전체 직군 칸반 (W31)" },
             { href: "/admin/g3-final-report", label: "G3 종합 보고서", desc: "14주 KPI·가설·ROI·자유서술 (W14)" },
             { href: "/admin/g3-decision", label: "G3 의사결정", desc: "EXPAND/DEEPEN/SAAS/STOP 4-옵션 (W14)" },
             { href: "/admin/saas-feasibility", label: "SaaS 사업성", desc: "B2B 시장·가격·경쟁 분석 (W14)" },

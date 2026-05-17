@@ -60,14 +60,22 @@ export default async function Page() {
         </p>
       </header>
 
-      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
         <Link href="/super-admin/operations" className="block rounded-lg border-2 border-amber-300 bg-amber-50 p-4 hover:bg-amber-100">
-          <div className="text-xs font-bold uppercase tracking-wider text-amber-700">▶ 통합 운영 대시보드</div>
-          <div className="mt-1 font-semibold">B2C + B2B + 자원 + 인시던트 (W29-W30)</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-amber-700">▶ 통합 운영</div>
+          <div className="mt-1 text-sm font-semibold">B2C+B2B+자원 (W29)</div>
         </Link>
         <Link href="/super-admin/g4b-decision" className="block rounded-lg border-2 border-purple-300 bg-purple-50 p-4 hover:bg-purple-100">
-          <div className="text-xs font-bold uppercase tracking-wider text-purple-700">▶ G4-B 게이트 평가</div>
-          <div className="mt-1 font-semibold">Phase 4B → 4C 진입 결정 (6 관문)</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-purple-700">▶ G4-B 게이트</div>
+          <div className="mt-1 text-sm font-semibold">Phase 4B→4C 결정</div>
+        </Link>
+        <Link href="/super-admin/org-chart" className="block rounded-lg border-2 border-blue-300 bg-blue-50 p-4 hover:bg-blue-100">
+          <div className="text-xs font-bold uppercase tracking-wider text-blue-700">▶ 조직도</div>
+          <div className="mt-1 text-sm font-semibold">사업부 11명 구조 (W31)</div>
+        </Link>
+        <Link href="/super-admin/pnl" className="block rounded-lg border-2 border-emerald-300 bg-emerald-50 p-4 hover:bg-emerald-100">
+          <div className="text-xs font-bold uppercase tracking-wider text-emerald-700">▶ 월간 P&L</div>
+          <div className="mt-1 text-sm font-semibold">사업부 손익 분리 (W31)</div>
         </Link>
       </div>
 
