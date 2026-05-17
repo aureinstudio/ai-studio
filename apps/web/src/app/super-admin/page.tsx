@@ -81,6 +81,10 @@ export default async function Page() {
           <div className="text-xs font-bold uppercase tracking-wider text-rose-700">▶ 글로벌 검토</div>
           <div className="mt-1 text-sm font-semibold">8개국 시장 + 4 시나리오 (W35)</div>
         </Link>
+        <Link href="/super-admin/annual-plan" className="block rounded-lg border-2 border-indigo-300 bg-indigo-50 p-4 hover:bg-indigo-100">
+          <div className="text-xs font-bold uppercase tracking-wider text-indigo-700">▶ 차년도 계획서</div>
+          <div className="mt-1 text-sm font-semibold">2027 · 8섹션 PDF (W37)</div>
+        </Link>
       </div>
 
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
