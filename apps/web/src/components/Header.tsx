@@ -1,8 +1,26 @@
+import { cache } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { LogoutButton } from "./LogoutButton";
 import { ThemeToggle } from "./ThemeToggle";
+
+// 같은 request 내 중복 호출 1회만 — Header가 layout에서 매 페이지 호출되므로 핵심
+const getCurrentUserAndRole = cache(async () => {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { user: null, role: undefined as string | undefined };
+
+  // admin 클라이언트로 RLS 우회 → profiles select 1회만 (가장 빠름)
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  return { user, role: profile?.role as string | undefined };
+});
 
 type NavItem = { href: string; label: string; highlight?: boolean; instructorOnly?: boolean };
 
@@ -29,23 +47,9 @@ const ROLE_LINK: Record<string, { href: string; label: string }> = {
 };
 
 export async function Header() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // 역할 조회 (로그인 사용자만)
-  let roleLink: { href: string; label: string } | null = null;
-  let userRole: string | undefined;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    userRole = profile?.role as string | undefined;
-    if (userRole && ROLE_LINK[userRole]) roleLink = ROLE_LINK[userRole];
-  }
+  const { user, role: userRole } = await getCurrentUserAndRole();
+  const roleLink: { href: string; label: string } | null =
+    userRole && ROLE_LINK[userRole] ? ROLE_LINK[userRole] : null;
   const isAdmin = userRole === "admin" || userRole === "keg_super_admin";
   const isInstructorRole = !!userRole && INSTRUCTOR_ROLES.has(userRole);
 
