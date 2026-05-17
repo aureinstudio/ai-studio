@@ -60,6 +60,17 @@ export default async function Page() {
         </p>
       </header>
 
+      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <Link href="/super-admin/operations" className="block rounded-lg border-2 border-amber-300 bg-amber-50 p-4 hover:bg-amber-100">
+          <div className="text-xs font-bold uppercase tracking-wider text-amber-700">▶ 통합 운영 대시보드</div>
+          <div className="mt-1 font-semibold">B2C + B2B + 자원 + 인시던트 (W29-W30)</div>
+        </Link>
+        <Link href="/super-admin/g4b-decision" className="block rounded-lg border-2 border-purple-300 bg-purple-50 p-4 hover:bg-purple-100">
+          <div className="text-xs font-bold uppercase tracking-wider text-purple-700">▶ G4-B 게이트 평가</div>
+          <div className="mt-1 font-semibold">Phase 4B → 4C 진입 결정 (6 관문)</div>
+        </Link>
+      </div>
+
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
         <Stat label="전체 테넌트" value={totalTenants.toString()} />
         <Stat label="활성" value={activeTenants.toString()} cls="text-emerald-600" />
