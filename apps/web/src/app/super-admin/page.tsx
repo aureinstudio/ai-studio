@@ -77,6 +77,10 @@ export default async function Page() {
           <div className="text-xs font-bold uppercase tracking-wider text-emerald-700">▶ 월간 P&L</div>
           <div className="mt-1 text-sm font-semibold">사업부 손익 분리 (W31)</div>
         </Link>
+        <Link href="/super-admin/global-expansion" className="block rounded-lg border-2 border-rose-300 bg-rose-50 p-4 hover:bg-rose-100">
+          <div className="text-xs font-bold uppercase tracking-wider text-rose-700">▶ 글로벌 검토</div>
+          <div className="mt-1 text-sm font-semibold">8개국 시장 + 4 시나리오 (W35)</div>
+        </Link>
       </div>
 
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
