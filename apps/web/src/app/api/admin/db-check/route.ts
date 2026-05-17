@@ -90,6 +90,10 @@ export async function GET(_request: NextRequest) {
     { name: "sales_leads (W26)", migration: "0043", table: "sales_leads", column: "stage" },
     { name: "case_studies (W28)", migration: "0043", table: "case_studies", column: "published" },
     { name: "mrr_snapshots (W28)", migration: "0043", table: "mrr_snapshots", column: "period" },
+    { name: "g4b_reports (W29)", migration: "0044", table: "g4b_reports" },
+    { name: "g4b_decisions (W29)", migration: "0044", table: "g4b_decisions", column: "decision" },
+    { name: "customer_checkins (W29)", migration: "0044", table: "customer_checkins", column: "checkin_type" },
+    { name: "renewal_alerts (W29)", migration: "0044", table: "renewal_alerts", column: "alert_level" },
   ];
 
   // 각 체크 — 1 row select로 존재 확인. 컬럼이 명시되면 그 컬럼도 select.

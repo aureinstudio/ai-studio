@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/governance-report",
       "schedule": "0 23 * * 0"
+    },
+    {
+      "path": "/api/cron/customer-success",
+      "schedule": "0 17 * * *"
     }
   ],
   "functions": {
