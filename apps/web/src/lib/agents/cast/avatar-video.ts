@@ -26,25 +26,31 @@ export async function submitHeyGenVideo(
   const apiKey = process.env.HEYGEN_API_KEY;
   if (!apiKey) throw new Error("HEYGEN_API_KEY not configured");
 
-  // PIP 레이아웃 — 우하단 끝에 붙임 + 원형 마스킹 + 스튜디오 배경 제거.
-  // offset (0.35, 0.45): 우하단 코너에 거의 flush — 어두운 슬라이드 배경과 자연스럽게 어우러짐.
-  // matting: true → HeyGen이 아바타의 스튜디오 배경을 제거 (사람만 남김).
+  // PIP 레이아웃 — 우하단 코너에 작은 원형 아바타.
+  // 1920×1080 기준 right:80px, bottom:80px 마진 + 원 지름 ~270px 목표.
+  // HeyGen offset = 프레임 중심 대비 아바타 중심의 정규화 좌표 (양수 = 우/하).
+  // x=0.78 → center≈1709px (right margin ≈80px), y=0.60 → center≈864px (bottom margin ≈81px).
+  // scale=0.25 → 원 지름 ≈270px.
+  // matting: true → HeyGen이 아바타 스튜디오 배경 제거.
   // avatar_style "circle" → 원형 마스킹.
+  const PIP_SCALE = 0.25;
+  const PIP_OFFSET = { x: 0.78, y: 0.6 };
   const character =
     avatarType === "talking_photo"
       ? {
           type: "talking_photo" as const,
           talking_photo_id: avatarId,
-          scale: 0.32,
-          offset: { x: 0.35, y: 0.45 },
+          talking_photo_style: "circle" as const,
+          scale: PIP_SCALE,
+          offset: PIP_OFFSET,
           matting: true,
         }
       : {
           type: "avatar" as const,
           avatar_id: avatarId,
           avatar_style: "circle" as const,
-          scale: 0.32,
-          offset: { x: 0.35, y: 0.45 },
+          scale: PIP_SCALE,
+          offset: PIP_OFFSET,
           matting: true,
         };
 
