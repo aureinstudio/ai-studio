@@ -41,3 +41,8 @@
 **/next-env.d.ts
 tests/load/tokens.json
 apps/web/flip-sample.ts
+
+# Office temp lock files
+~$*.pptx
+~$*.docx
+~$*.xlsx

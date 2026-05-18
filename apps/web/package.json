@@ -8,7 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:demo": "tsx scripts/seed-demo-users.ts",
+    "seed:demo-data": "tsx scripts/seed-demo-data.ts",
+    "capture": "tsx scripts/capture-pages.ts",
+    "manual:pptx": "python scripts/build-manual-pptx.py",
+    "handover:pptx": "python scripts/build-handover-pptx.py"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
@@ -42,7 +47,9 @@
     "@vitest/coverage-v8": "^4.1.6",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "playwright": "^1.60.0",
     "tailwindcss": "^4",
+    "tsx": "^4.22.1",
     "typescript": "^5",
     "vitest": "^4.1.6"
   }
