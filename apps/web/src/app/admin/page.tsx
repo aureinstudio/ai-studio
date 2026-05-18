@@ -31,48 +31,78 @@ type JobStat = {
 };
 
 async function getAdminData() {
+  try {
+    return await getAdminDataInner();
+  } catch (err) {
+    // 진단용 — 운영에서 Server Component digest 메시지 가려짐 회피.
+    // admin/super-admin만 이 페이지에 도달하므로 메시지 노출 안전.
+    const e = err as Error & { code?: string; details?: string; hint?: string };
+    return {
+      diagError: {
+        message: e?.message ?? String(err),
+        code: e?.code,
+        details: e?.details,
+        hint: e?.hint,
+        stack: e?.stack?.split("\n").slice(0, 8).join("\n"),
+      } as const,
+    };
+  }
+}
+
+async function getAdminDataInner() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("id, role")
     .eq("id", user.id)
     .single<Profile>();
+  if (profileErr) throw new Error(`profiles fetch: ${profileErr.message}`);
 
   if (profile?.role !== "admin" && profile?.role !== "keg_super_admin") return { unauthorized: true as const };
 
   // 전체 통계
-  const { count: totalJobs } = await supabase
+  const totalJobsRes = await supabase
     .from("studio_jobs")
     .select("id", { count: "exact", head: true });
+  if (totalJobsRes.error) throw new Error(`studio_jobs count: ${totalJobsRes.error.message}`);
+  const totalJobs = totalJobsRes.count;
 
-  const { count: completedJobs } = await supabase
+  const completedJobsRes = await supabase
     .from("studio_jobs")
     .select("id", { count: "exact", head: true })
     .eq("status", "completed");
+  if (completedJobsRes.error) throw new Error(`studio_jobs completed count: ${completedJobsRes.error.message}`);
+  const completedJobs = completedJobsRes.count;
 
-  const { count: failedJobs } = await supabase
+  const failedJobsRes = await supabase
     .from("studio_jobs")
     .select("id", { count: "exact", head: true })
     .eq("status", "failed");
+  if (failedJobsRes.error) throw new Error(`studio_jobs failed count: ${failedJobsRes.error.message}`);
+  const failedJobs = failedJobsRes.count;
 
-  const { data: recentJobs } = await supabase
+  const recentJobsRes = await supabase
     .from("studio_jobs")
     .select("id, topic, status, cost_usd, duration_seconds, is_sample, agent_logs, created_at")
     .order("created_at", { ascending: false })
     .limit(20)
     .returns<JobStat[]>();
+  if (recentJobsRes.error) throw new Error(`studio_jobs list: ${recentJobsRes.error.message}`);
+  const recentJobs = recentJobsRes.data;
 
-  const { data: evaluations } = await supabase
+  const evaluationsRes = await supabase
     .from("sme_evaluations")
     .select("id, studio_job_id, rating, improvements, evaluator_name, evaluator_role, created_at")
     .order("created_at", { ascending: false })
     .limit(20)
     .returns<EvaluationRow[]>();
+  if (evaluationsRes.error) throw new Error(`sme_evaluations: ${evaluationsRes.error.message}`);
+  const evaluations = evaluationsRes.data;
 
   // 에이전트별 호출 빈도
   const agentFreq: Record<string, { count: number; cost: number }> = {};
@@ -98,10 +128,12 @@ async function getAdminData() {
       : 0;
 
   // Cast 통계 (Mode A vs Mode B) + 품질 점수
-  const { data: castStats } = await supabase
+  const castStatsRes = await supabase
     .from("cast_jobs")
     .select("mode, status, cost_usd, quality_score, retry_count")
     .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+  if (castStatsRes.error) throw new Error(`cast_jobs: ${castStatsRes.error.message}`);
+  const castStats = castStatsRes.data;
 
   const castA = (castStats ?? []).filter((c) => c.mode === "batch");
   const castB = (castStats ?? []).filter((c) => c.mode === "realtime");
@@ -169,6 +201,24 @@ async function getAdminData() {
 export default async function AdminPage() {
   const data = await getAdminData();
   if (!data) redirect("/login?next=/admin");
+  if ("diagError" in data) {
+    const e = data.diagError;
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-20">
+        <h1 className="text-2xl font-semibold text-foreground">Admin 페이지 로드 실패</h1>
+        <p className="mt-2 text-sm text-muted-foreground">진단 정보 (관리자 전용):</p>
+        <pre className="mt-4 overflow-x-auto rounded-md border border-border/60 bg-card/60 p-4 text-xs">
+{`message: ${e.message}
+code:    ${e.code ?? "—"}
+details: ${e.details ?? "—"}
+hint:    ${e.hint ?? "—"}
+
+${e.stack ?? ""}`}
+        </pre>
+        <Link href="/dashboard" className="mt-6 inline-block text-sm underline">대시보드로</Link>
+      </div>
+    );
+  }
   if ("unauthorized" in data) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-20 text-center">
