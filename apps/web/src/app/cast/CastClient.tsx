@@ -685,7 +685,8 @@ export function CastClient({ studioJobs }: { studioJobs: StudioJobOption[] }) {
 
             <ol className="space-y-3">
               {CAST_AGENTS.map((agent, i) => {
-                const log = job.agent_logs.find((l) => l.agent_id === agent.id);
+                const logs = Array.isArray(job.agent_logs) ? job.agent_logs : [];
+                const log = logs.find((l) => l.agent_id === agent.id);
                 const done = log?.status === "completed";
                 const failed = log?.status === "failed";
                 const started = log?.status === "started";

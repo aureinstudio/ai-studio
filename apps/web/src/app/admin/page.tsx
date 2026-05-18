@@ -105,9 +105,12 @@ async function getAdminDataInner() {
   const evaluations = evaluationsRes.data;
 
   // 에이전트별 호출 빈도
+  // agent_logs는 jsonb 컬럼 — 일부 row에서 배열이 아닌 객체로 저장되어 있을 수 있어
+  // Array.isArray 가드 필수. 가드 없으면 for...of가 "object is not iterable"로 크래시.
   const agentFreq: Record<string, { count: number; cost: number }> = {};
   for (const job of recentJobs ?? []) {
-    for (const log of job.agent_logs ?? []) {
+    const logs = Array.isArray(job.agent_logs) ? job.agent_logs : [];
+    for (const log of logs) {
       if (log.status === "completed") {
         agentFreq[log.agent_id] ??= { count: 0, cost: 0 };
         agentFreq[log.agent_id].count++;
