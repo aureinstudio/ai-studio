@@ -26,15 +26,12 @@ export async function submitHeyGenVideo(
   const apiKey = process.env.HEYGEN_API_KEY;
   if (!apiKey) throw new Error("HEYGEN_API_KEY not configured");
 
-  // PIP 레이아웃 — 우하단 코너에 작은 원형 아바타.
-  // 1920×1080 기준 right:80px, bottom:80px 마진 + 원 지름 ~270px 목표.
-  // HeyGen offset = 프레임 중심 대비 아바타 중심의 정규화 좌표 (양수 = 우/하).
-  // x=0.78 → center≈1709px (right margin ≈80px), y=0.60 → center≈864px (bottom margin ≈81px).
-  // scale=0.25 → 원 지름 ≈270px.
-  // matting: true → HeyGen이 아바타 스튜디오 배경 제거.
-  // avatar_style "circle" → 원형 마스킹.
-  const PIP_SCALE = 0.25;
-  const PIP_OFFSET = { x: 0.78, y: 0.6 };
+  // PIP 레이아웃 — 우하단 원형 아바타.
+  // HeyGen v2 offset/scale 시멘틱은 문서가 모호 — 실측 기반 튜닝 필요.
+  // 이전 시도: (0.78, 0.60) scale 0.25 → 아바타 미표시 (offset 범위 초과 추정).
+  // 현재 값: 가시성 우선 확보 후 corner-flush 미세조정.
+  const PIP_SCALE = 0.5;
+  const PIP_OFFSET = { x: 0.4, y: 0.42 };
   const character =
     avatarType === "talking_photo"
       ? {
