@@ -63,7 +63,17 @@ async function seed() {
   console.log(`  ✓ course_catalog ${courses.length}건`);
 
   // 2) support_tickets
-  const tickets = [
+  const tickets: Array<{
+    email: string;
+    user_id: string | null;
+    name: string;
+    category: string;
+    subject: string;
+    body: string;
+    status: string;
+    resolved_at?: string;
+    resolution_note?: string;
+  }> = [
     { email: "demo-student@ai-studio.kr", user_id: student, name: "데모 수강생", category: "technical",     subject: "동영상 재생이 안 됩니다", body: "Cast에서 만든 영상이 중간에 끊깁니다.\n[" + MARKER + "]", status: "open" },
     { email: "kim.user@example.com",       user_id: null,    name: "김학습",     category: "content_error",  subject: "TOEIC 강의 오타", body: "Week 3 Listening 자료 12페이지 오타 제보.\n[" + MARKER + "]", status: "in_progress" },
     { email: "lee.user@example.com",       user_id: null,    name: "이학생",     category: "billing",         subject: "환불 요청", body: "결제했는데 수강이 안 됩니다.\n[" + MARKER + "]", status: "open" },
