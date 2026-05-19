@@ -31,7 +31,7 @@ export async function submitHeyGenVideo(
   // 이전 시도: (0.78, 0.60) scale 0.25 → 아바타 미표시 (offset 범위 초과 추정).
   // 현재 값: 가시성 우선 확보 후 corner-flush 미세조정.
   const PIP_SCALE = 0.28;
-  const PIP_OFFSET = { x: 0.42, y: 0.4 };
+  const PIP_OFFSET = { x: 0.42, y: 0.3 };
   const character =
     avatarType === "talking_photo"
       ? {
