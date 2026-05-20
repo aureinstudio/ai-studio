@@ -152,7 +152,7 @@ export default async function DashboardPage() {
       {/* 학습 이어가기 hero — 최근 수강 과정 1개 */}
       {latest && (
         <Link
-          href={`/tutor?studio_job_id=${latest.studio_job_id}`}
+          href={`/learn/${latest.studio_job_id}`}
           className="mb-8 block rounded-xl border-2 border-foreground/20 bg-gradient-to-br from-card via-card/80 to-card p-6 transition-all hover:-translate-y-0.5 hover:border-foreground/40 hover:shadow-xl"
         >
           <p className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
@@ -160,7 +160,7 @@ export default async function DashboardPage() {
           </p>
           <h2 className="text-2xl font-bold tracking-tight">{latest.topic}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            AI Tutor에게 질문하거나 다음 챕터로 이동하세요.
+            강의 콘텐츠로 이동합니다. 거기서 AI Tutor에게 질문도 가능합니다.
           </p>
         </Link>
       )}
@@ -266,7 +266,7 @@ export default async function DashboardPage() {
             {enrollments.map((e) => (
               <Link
                 key={e.id}
-                href={`/tutor?studio_job_id=${e.studio_job_id}`}
+                href={`/learn/${e.studio_job_id}`}
                 className="rounded-lg border border-border/60 bg-card/40 p-4 transition-colors hover:bg-card hover:border-foreground/30"
               >
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -274,7 +274,7 @@ export default async function DashboardPage() {
                 </div>
                 <div className="mt-1 text-sm font-medium leading-tight">{e.topic}</div>
                 <div className="mt-2 text-[10px] text-muted-foreground">
-                  등록 {new Date(e.enrolled_at).toLocaleDateString()} · Tutor →
+                  등록 {new Date(e.enrolled_at).toLocaleDateString()} · 학습 →
                 </div>
               </Link>
             ))}

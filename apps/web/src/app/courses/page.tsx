@@ -124,10 +124,10 @@ export default async function CoursesCatalogPage({
                       initialEnrolled={enrolled && !wasDropped}
                     />
                     <Link
-                      href={`/tutor?studio_job_id=${c.id}`}
+                      href={`/learn/${c.id}`}
                       className="px-3 py-1.5 text-xs rounded border hover:bg-muted"
                     >
-                      Tutor →
+                      학습 →
                     </Link>
                   </div>
                 </CardContent>
