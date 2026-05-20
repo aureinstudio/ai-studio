@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
+import { SuperAdminDashboard } from "./SuperAdminDashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -31,17 +32,19 @@ type Enrollment = {
   enrolled_at: string;
 };
 
+// keg_super_admin은 redirect하지 않고 통합 대시보드 노출 (모든 기능 접근).
+// tenant_admin도 동일하게 통합 뷰 노출.
 const ROLE_HOME: Partial<Record<Role, string>> = {
   admin: "/admin",
-  keg_super_admin: "/admin",
-  tenant_admin: "/admin",
   sme: "/sme/dashboard",
   operations: "/sme/dashboard",
   instructor: "/instructor/dashboard",
   creator: "/instructor/dashboard",
 };
 
-async function getStudentData() {
+const SUPER_ROLES = new Set<Role>(["keg_super_admin", "tenant_admin"]);
+
+async function resolveProfile(): Promise<Profile | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -54,16 +57,19 @@ async function getStudentData() {
     .eq("id", user.id)
     .single<Profile>();
 
-  const safeProfile: Profile = profile ?? {
-    id: user.id,
-    email: user.email ?? "",
-    name: (user.user_metadata?.name as string | undefined) ?? null,
-    role: "user",
-  };
+  return (
+    profile ?? {
+      id: user.id,
+      email: user.email ?? "",
+      name: (user.user_metadata?.name as string | undefined) ?? null,
+      role: "user",
+    }
+  );
+}
 
-  // 역할별 전용 홈으로 redirect (학습자 외 전부 분기)
-  const redirectTo = ROLE_HOME[safeProfile.role];
-  if (redirectTo) redirect(redirectTo);
+async function getStudentData(profile: Profile) {
+  const supabase = await createClient();
+  const user = { id: profile.id };
 
   // 수강 중인 과정 (학습자 핵심 데이터)
   const { data: enrollmentRows } = await supabase
@@ -117,7 +123,6 @@ async function getStudentData() {
     (rows ?? []).reduce((s, r) => s + Number(r.total_messages ?? 0), 0);
 
   return {
-    profile: safeProfile,
     enrollments,
     activity: {
       msg7d: sumMsgs(conv7d.data),
@@ -127,10 +132,21 @@ async function getStudentData() {
 }
 
 export default async function DashboardPage() {
-  const data = await getStudentData();
-  if (!data) redirect("/login");
+  const profile = await resolveProfile();
+  if (!profile) redirect("/login");
 
-  const { profile, enrollments, activity } = data;
+  // keg_super_admin / tenant_admin → 통합 대시보드 (모든 기능 노출)
+  if (SUPER_ROLES.has(profile.role)) {
+    return <SuperAdminDashboard profile={profile} />;
+  }
+
+  // admin / sme / instructor → 전용 홈으로 redirect
+  const redirectTo = ROLE_HOME[profile.role];
+  if (redirectTo) redirect(redirectTo);
+
+  // user / customer / 기타 → 학습자 뷰
+  const data = await getStudentData(profile);
+  const { enrollments, activity } = data;
   const greeting = profile.name ?? profile.email.split("@")[0];
   const latest = enrollments[0];
 
