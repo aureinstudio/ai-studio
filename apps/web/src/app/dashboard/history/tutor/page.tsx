@@ -44,7 +44,7 @@ export default function TutorHistoryPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-16 lg:px-10 lg:py-20">
+    <>
       <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
@@ -65,18 +65,6 @@ export default function TutorHistoryPage() {
         </Link>
       </div>
 
-      {/* 탭 */}
-      <div className="mb-8 flex gap-2 border-b border-border/60">
-        <Link href="/dashboard/history" className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-          📝 Studio
-        </Link>
-        <Link href="/dashboard/history/cast" className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-          🎬 Cast
-        </Link>
-        <Link href="/dashboard/history/tutor" className="border-b-2 border-foreground px-4 py-2 text-sm font-semibold">
-          🤖 Tutor
-        </Link>
-      </div>
 
       {loading ? (
         <div className="rounded-lg border border-border/60 bg-card/40 p-12 text-center text-sm text-muted-foreground">
@@ -141,6 +129,6 @@ export default function TutorHistoryPage() {
           </table>
         </div>
       )}
-    </div>
+    </>
   );
 }
