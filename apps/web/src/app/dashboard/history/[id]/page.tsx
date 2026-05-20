@@ -8,6 +8,7 @@ import {
   type PlannerOutput,
 } from "@/components/StudioJobResult";
 import { HistoryDetailActions } from "./HistoryDetailActions";
+import { ProgressView } from "./ProgressView";
 
 export const dynamic = "force-dynamic";
 
@@ -124,15 +125,11 @@ export default async function HistoryDetailPage({
             <p className="text-xs">{job.error ?? "알 수 없는 오류"}</p>
           </div>
         ) : (
-          <div className="rounded-md border border-border/60 bg-card/40 p-4 text-sm text-muted-foreground">
-            아직 진행 중인 작업입니다 (status: {job.status}).{" "}
-            <Link
-              href="/studio"
-              className="font-medium text-foreground underline-offset-4 hover:underline"
-            >
-              실시간 진행 상황 보기
-            </Link>
-          </div>
+          <ProgressView
+            jobId={job.id}
+            initialStatus={job.status}
+            initialLogs={job.agent_logs ?? []}
+          />
         )}
       </div>
     </div>
