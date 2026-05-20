@@ -72,7 +72,24 @@ export abstract class Agent<TInput, TOutput> {
     const startedAt = new Date().toISOString();
     const startMs = Date.now();
 
+    // 재시도 정책 — Anthropic overloaded/rate_limit/5xx는 transient
+    const MAX_ATTEMPTS = 4;
+    const BACKOFF_MS = [1000, 3000, 8000];
+    const isRetryable = (err: unknown): boolean => {
+      const e = err as { status?: number; error?: { type?: string }; type?: string; message?: string };
+      const status = e?.status;
+      if (status === 429 || status === 529 || (typeof status === "number" && status >= 500 && status < 600)) return true;
+      const innerType = e?.error?.type ?? e?.type;
+      if (innerType === "overloaded_error" || innerType === "rate_limit_error" || innerType === "api_error") return true;
+      const msg = e?.message ?? "";
+      if (/overloaded|rate.?limit|timeout|ECONNRESET|ETIMEDOUT/i.test(msg)) return true;
+      return false;
+    };
+
     let response;
+    let lastErr: unknown;
+    let attempt = 0;
+    for (; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       // 스트리밍 — 진행 상황을 onProgress로 노출 (UI 실시간 토큰 카운트)
       // 캐시 전략:
@@ -130,7 +147,18 @@ export abstract class Agent<TInput, TOutput> {
         }
       }
       response = await stream.finalMessage();
+      break; // 성공 → 재시도 루프 탈출
     } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_ATTEMPTS - 1 && isRetryable(err)) {
+        const wait = BACKOFF_MS[attempt] ?? BACKOFF_MS[BACKOFF_MS.length - 1];
+        console.warn(
+          `[${this.id}] transient error (attempt ${attempt + 1}/${MAX_ATTEMPTS}) — retry in ${wait}ms: ` +
+            (err instanceof Error ? err.message : String(err)).slice(0, 200),
+        );
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
       const message = err instanceof Error ? err.message : String(err);
       const completedAt = new Date().toISOString();
       const log: AgentLog = {
@@ -146,6 +174,10 @@ export abstract class Agent<TInput, TOutput> {
         error: message,
       };
       throw new AgentError(this.id, message, log);
+    }
+    } // for retry
+    if (!response) {
+      throw new AgentError(this.id, lastErr instanceof Error ? lastErr.message : "no response after retries");
     }
 
     const textBlock = response.content.find((b) => b.type === "text");
