@@ -1,7 +1,7 @@
 /**
  * 강사 자료 텍스트 추출.
  * - .md / .txt : UTF-8 디코드
- * - .pdf       : pdf-parse
+ * - .pdf       : unpdf (serverless 친화, pdfjs 브라우저 의존성 회피)
  * - .pptx      : officeparser (zip + xml parse)
  *
  * 실패 시 fallback 메시지를 던지지 않고 빈 문자열 반환 → 호출측이 길이 검증.
@@ -25,13 +25,10 @@ export async function extractText(bytes: Uint8Array, type: SourceType): Promise<
       return new TextDecoder("utf-8").decode(bytes).trim();
 
     case "pdf": {
-      const mod = await import("pdf-parse");
-      // pdf-parse v2.x default export — runtime shape varies
-      const fn = (mod as { default?: (b: Buffer) => Promise<{ text: string }> }).default
-        ?? (mod as unknown as (b: Buffer) => Promise<{ text: string }>);
-      const buf = Buffer.from(bytes);
-      const res = await fn(buf);
-      return (res?.text ?? "").trim();
+      const { extractText: unpdfExtract, getDocumentProxy } = await import("unpdf");
+      const pdf = await getDocumentProxy(bytes);
+      const { text } = await unpdfExtract(pdf, { mergePages: true });
+      return (text ?? "").trim();
     }
 
     case "pptx": {
